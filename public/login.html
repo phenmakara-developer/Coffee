@@ -1,0 +1,442 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#063d32" />
+  <title>VERSO Coffee — Admin sign in</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Playfair+Display:ital,wght@0,500;0,600;1,500;1,600&display=swap" rel="stylesheet">
+  <link href="https://unpkg.com/aos@2.3.4/dist/aos.css" rel="stylesheet">
+  <style>
+    :root {
+      --green: #063d32;
+      --green-2: #0b5143;
+      --cream: #f8f3e9;
+      --cream-2: #eee6d8;
+      --gold: #c69b52;
+      --ink: #18332d;
+      --muted: #7c837b;
+      --line: #d8d0c2;
+      --white: #fffdf8;
+      --danger: #a9433b;
+      --shadow: 0 28px 70px rgba(0, 25, 19, .18);
+    }
+    * { box-sizing: border-box; }
+    html, body { min-height: 100%; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      padding: 34px;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at 15% 10%, rgba(198,155,82,.13), transparent 28%),
+        radial-gradient(circle at 90% 90%, rgba(11,81,67,.18), transparent 30%),
+        #e9e4da;
+      font-family: "DM Sans", sans-serif;
+    }
+    button, input { font: inherit; }
+    button { cursor: pointer; }
+    a { color: #8e6b32; font-weight: 600; text-decoration: none; }
+    a:hover { color: var(--green); text-decoration: underline; text-underline-offset: 3px; }
+    .page { width: min(1080px, 100%); }
+    .topline {
+      display: flex; align-items: center; justify-content: space-between;
+      margin: 0 4px 18px; color: #6f786f; font-size: 11px;
+      letter-spacing: .22em; text-transform: uppercase;
+    }
+    .brand { color: var(--green); font-weight: 700; letter-spacing: .3em; }
+    .brand span { color: var(--gold); }
+    .top-note { letter-spacing: .16em; }
+    .auth-shell {
+      position: relative; min-height: 660px; overflow: hidden;
+      display: grid; grid-template-columns: 1fr 1fr;
+      background: var(--cream); border: 1px solid rgba(255,255,255,.7);
+      border-radius: 22px; box-shadow: var(--shadow);
+      isolation: isolate;
+    }
+    .form-panel {
+      position: relative; z-index: 2; display: flex; align-items: center;
+      padding: 56px clamp(34px, 6vw, 78px); background: var(--cream);
+    }
+    .form-content { width: 100%; max-width: 390px; margin: auto; }
+    .eyebrow {
+      display: flex; align-items: center; gap: 10px; margin-bottom: 16px;
+      color: var(--gold); font-size: 10px; font-weight: 700;
+      letter-spacing: .28em; text-transform: uppercase;
+    }
+    .eyebrow::before { content: ""; width: 24px; height: 1px; background: var(--gold); }
+    .admin-badge {
+      display: inline-flex; align-items: center; gap: 7px; margin-bottom: 16px;
+      padding: 7px 11px; border: 1px solid rgba(6,61,50,.16); border-radius: 999px;
+      background: rgba(6,61,50,.06); color: var(--green);
+      font-size: 9px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase;
+    }
+    .admin-badge svg { width: 13px; height: 13px; }
+    h1 { margin: 0; color: var(--green); font-size: clamp(32px, 4vw, 43px); line-height: 1.08; letter-spacing: -.055em; }
+    h1 span { color: var(--gold); }
+    .intro { margin: 13px 0 28px; color: var(--muted); font-size: 13.5px; line-height: 1.7; }
+    .field { position: relative; margin: 0 0 21px; }
+    .field label {
+      display: block; margin-bottom: 8px; color: #68756d;
+      font-size: 11px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase;
+    }
+    .field input {
+      width: 100%; height: 49px; padding: 0 14px;
+      color: var(--ink); background: rgba(255,255,255,.42);
+      border: 1px solid var(--line); border-radius: 9px; outline: none;
+      transition: border-color .2s, box-shadow .2s, background .2s;
+    }
+    .field input[type="password"], .field input.password-field { padding-right: 46px; }
+    .field input::placeholder { color: #a5a79e; }
+    .field input:focus { border-color: var(--gold); background: var(--white); box-shadow: 0 0 0 3px rgba(198,155,82,.13); }
+    .field input.invalid { border-color: var(--danger); }
+    .field-error { display: none; margin-top: 6px; color: var(--danger); font-size: 11px; line-height: 1.45; }
+    .field-error.show { display: block; }
+    .password-toggle {
+      position: absolute; right: 10px; bottom: 8px; width: 32px; height: 30px;
+      display: grid; place-items: center; border: 0; border-radius: 6px;
+      color: #7d887f; background: transparent;
+    }
+    .password-toggle:hover { color: var(--green); background: rgba(6,61,50,.06); }
+    .password-toggle svg { width: 17px; height: 17px; }
+    .form-options { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin: 3px 0 22px; font-size: 12px; }
+    .remember { display: inline-flex; align-items: center; gap: 8px; color: #69766e; cursor: pointer; }
+    .remember input { accent-color: var(--green); width: 15px; height: 15px; }
+    .submit-btn {
+      width: 100%; min-height: 52px; display: flex; justify-content: center; align-items: center;
+      border: 0; border-radius: 999px; color: #fffdf8;
+      background: linear-gradient(110deg, var(--green), #0b5a49);
+      box-shadow: 0 10px 20px rgba(6,61,50,.17);
+      font-size: 13px; font-weight: 700; letter-spacing: .04em;
+      transition: transform .2s, box-shadow .2s, filter .2s;
+    }
+    .submit-btn:hover { transform: translateY(-2px); box-shadow: 0 14px 25px rgba(6,61,50,.24); filter: brightness(1.08); }
+    .submit-btn:active { transform: translateY(0); }
+    .demo-box {
+      margin-top: 24px; padding: 15px 16px;
+      border: 1px dashed rgba(6,61,50,.22); border-radius: 12px;
+      background: rgba(255,253,248,.55);
+    }
+    .demo-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 10px; }
+    .demo-head > span { color: #68756d; font-size: 9px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; }
+    .use-demo {
+      padding: 4px 9px; border: 1px solid rgba(6,61,50,.2); border-radius: 999px;
+      background: transparent; color: var(--green); font-size: 9px; font-weight: 700;
+    }
+    .use-demo:hover { background: var(--green); color: var(--cream); }
+    .demo-row { display: flex; justify-content: space-between; align-items: center; gap: 14px; padding: 4px 0; font-size: 11px; }
+    .demo-row span { color: var(--muted); }
+    .demo-row code {
+      padding: 3px 7px; border-radius: 5px; background: rgba(6,61,50,.07);
+      color: var(--green); font-family: ui-monospace, "SFMono-Regular", Menlo, monospace; font-size: 10.5px;
+    }
+    .alt-links { margin: 22px 0 0; color: #8b9088; font-size: 11px; line-height: 1.9; text-align: center; }
+    .alt-links span { margin: 0 7px; color: #c3beb4; }
+    .alt-links a { font-weight: 700; }
+    .welcome-panel {
+      position: relative; z-index: 1; grid-column: 2; grid-row: 1;
+      display: flex; align-items: center; padding: 70px clamp(34px, 6vw, 80px);
+      overflow: hidden; color: var(--cream);
+      background:
+        radial-gradient(ellipse at 75% 18%, rgba(198,155,82,.15), transparent 35%),
+        linear-gradient(145deg, #0a4b3e, #032a23 78%);
+    }
+    .welcome-panel::before, .welcome-panel::after {
+      content: ""; position: absolute; border: 1px solid rgba(198,155,82,.19);
+      border-radius: 50%; width: 440px; height: 440px; right: -230px; bottom: -190px;
+    }
+    .welcome-panel::after { width: 310px; height: 310px; right: -165px; bottom: -125px; }
+    .welcome-inner { position: relative; z-index: 2; max-width: 340px; }
+    .welcome-kicker { color: var(--gold); font-size: 10px; font-weight: 700; letter-spacing: .32em; }
+    .welcome-title {
+      margin: 20px 0 18px; color: #fffaf0;
+      font-family: "Playfair Display", serif; font-size: clamp(39px, 5vw, 56px);
+      font-weight: 500; line-height: 1.04; letter-spacing: -.035em;
+    }
+    .welcome-title em { color: #d6b579; font-weight: 500; }
+    .welcome-description { max-width: 300px; color: rgba(248,243,233,.67); font-size: 13px; line-height: 1.85; }
+    .welcome-list { display: grid; gap: 12px; margin: 30px 0 0; padding: 0; list-style: none; }
+    .welcome-list li { display: flex; align-items: center; gap: 10px; color: rgba(248,243,233,.78); font-size: 11px; }
+    .welcome-list li::before {
+      content: ""; width: 5px; height: 5px; border-radius: 50%;
+      background: var(--gold); box-shadow: 0 0 0 4px rgba(198,155,82,.13); flex-shrink: 0;
+    }
+    .welcome-foot { margin-top: 44px; color: rgba(248,243,233,.38); font-size: 9px; letter-spacing: .2em; text-transform: uppercase; }
+    .blade {
+      position: absolute; z-index: 4; top: -8%; bottom: -8%; left: 50%;
+      width: 12%; pointer-events: none;
+      background: linear-gradient(90deg, transparent, rgba(198,155,82,.7) 48%, transparent 53%);
+      transform: translateX(-50%) skewX(-10deg);
+      opacity: .85;
+    }
+    .legal { margin: 18px 4px 0; color: #8b9088; font-size: 10px; letter-spacing: .04em; text-align: center; }
+    .toast {
+      position: fixed; left: 50%; bottom: 26px; z-index: 20;
+      padding: 13px 18px; max-width: calc(100% - 32px);
+      color: #fff; background: #153e34; border: 1px solid rgba(255,255,255,.13);
+      border-radius: 12px; box-shadow: 0 12px 35px rgba(0,0,0,.2);
+      font-size: 13px; opacity: 0; transform: translate(-50%, 12px);
+      pointer-events: none; transition: .25s ease;
+    }
+    .toast.show { opacity: 1; transform: translate(-50%, 0); }
+    @media (max-width: 820px) {
+      body { padding: 18px 14px; align-items: start; }
+      .topline { margin: 8px 4px 14px; }
+      .top-note { display: none; }
+      .auth-shell { display: flex; flex-direction: column; min-height: 0; border-radius: 17px; }
+      .welcome-panel { order: 0; min-height: 250px; padding: 35px 30px; }
+      .welcome-title { margin: 12px 0; font-size: 40px; }
+      .welcome-list, .welcome-foot { display: none; }
+      .form-panel { order: 1; padding: 38px 27px 35px; }
+      .form-content { max-width: 440px; }
+      .blade { display: none; }
+    }
+    @media (max-width: 390px) {
+      body { padding: 12px 9px; }
+      .form-panel { padding: 32px 21px; }
+      h1 { font-size: 34px; }
+      .demo-row { flex-direction: column; align-items: flex-start; gap: 3px; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { scroll-behavior: auto !important; transition-duration: .01ms !important; animation-duration: .01ms !important; }
+    }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <div class="topline" data-aos="fade-down" data-aos-duration="800">
+      <a class="brand" href="/shop.html">VER<span>SO</span></a>
+      <div class="top-note">VERSO admin · Staff access only</div>
+    </div>
+
+    <section class="auth-shell" aria-label="VERSO Coffee administrator sign in">
+      <section class="form-panel" aria-label="Admin sign in">
+        <div class="form-content">
+          <div class="eyebrow" data-aos="fade-up" data-aos-delay="80">VERSO Coffee · Back office</div>
+          <div class="admin-badge" data-aos="fade-up" data-aos-delay="110">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M12 3 4.5 6v5.5c0 4.6 3.1 8.4 7.5 9.5 4.4-1.1 7.5-4.9 7.5-9.5V6L12 3Z"/><path d="m9.2 12 1.9 1.9 3.7-3.8"/></svg>
+            Store administrator access
+          </div>
+          <h1 data-aos="fade-up" data-aos-delay="140">Admin<br>sign in<span>.</span></h1>
+          <p class="intro" data-aos="fade-up" data-aos-delay="200">Manage orders, the menu, customers and the day-to-day running of VERSO Coffee.</p>
+
+          <form id="loginForm" novalidate data-aos="fade-up" data-aos-delay="250">
+            <div class="field">
+              <label for="loginEmail">Admin email</label>
+              <input id="loginEmail" name="email" type="email" autocomplete="username" placeholder="admin@verso.coffee" required>
+              <div class="field-error">Enter a valid admin email address.</div>
+            </div>
+            <div class="field">
+              <label for="loginPassword">Password</label>
+              <input id="loginPassword" name="password" type="password" autocomplete="current-password" placeholder="Enter your admin password" required minlength="8">
+              <button class="password-toggle" type="button" data-toggle="loginPassword" aria-label="Show password">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="M2.5 12s3.4-6 9.5-6 9.5 6 9.5 6-3.4 6-9.5 6-9.5-6-9.5-6Z"/><circle cx="12" cy="12" r="2.5"/></svg>
+              </button>
+              <div class="field-error">Password must contain at least 8 characters.</div>
+            </div>
+            <div class="form-options">
+              <label class="remember"><input type="checkbox" name="remember"> Keep me signed in</label>
+              <a href="#" id="forgotLink">Forgot password?</a>
+            </div>
+            <button class="submit-btn" type="submit">Open dashboard <span aria-hidden="true">&nbsp;↗</span></button>
+          </form>
+
+          <div class="demo-box" data-aos="fade-up" data-aos-delay="300">
+            <div class="demo-head">
+              <span>Demo admin credentials</span>
+              <button class="use-demo" type="button" id="useDemo">Use demo</button>
+            </div>
+            <div class="demo-row"><span>Email</span><code>admin@verso.coffee</code></div>
+            <div class="demo-row"><span>Password</span><code>haven123</code></div>
+          </div>
+
+          <p class="alt-links" data-aos="fade-up" data-aos-delay="340">
+            <a href="/shop-login.html">Customer coffee sign in ↗</a>
+            <span>·</span>
+            <a href="/shop.html">Visit the coffee shop</a>
+          </p>
+        </div>
+      </section>
+
+      <aside class="welcome-panel">
+        <div class="welcome-inner" data-aos="fade-left" data-aos-duration="1000">
+          <div class="welcome-kicker">VERSO COFFEE · ADMIN</div>
+          <div class="welcome-title">Run the<br><em>roast.</em></div>
+          <p class="welcome-description">One warm back office for the whole shop. Watch orders land, keep the menu fresh and know how the day is pouring.</p>
+          <ul class="welcome-list">
+            <li>Live order queue and pickup updates</li>
+            <li>Menu, customers and store insights</li>
+            <li>Pause ordering or update store details</li>
+          </ul>
+          <div class="welcome-foot">Authorized staff only</div>
+        </div>
+      </aside>
+      <div class="blade" aria-hidden="true"></div>
+    </section>
+
+    <p class="legal">Front-end demo · Admin sessions are stored in this browser only.</p>
+  </main>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+  <script src="https://unpkg.com/aos@2.3.4/dist/aos.js"></script>
+  <script>
+    const SESSION_KEY = "verso_session";
+    const SECURITY_KEY = "verso_admin_security";
+    const ADMIN_EMAIL = "admin@verso.coffee";
+    const ADMIN_PASSWORD = "haven123";
+
+    function storedPasswordHash() {
+      try {
+        const stored = JSON.parse(localStorage.getItem(SECURITY_KEY) || "null");
+        return stored && typeof stored === "object" && stored.hash ? stored.hash : "";
+      } catch (error) {
+        return "";
+      }
+    }
+
+    async function sha256(text) {
+      if (window.crypto && window.crypto.subtle) {
+        const bytes = new TextEncoder().encode(text);
+        const digest = await window.crypto.subtle.digest("SHA-256", bytes);
+        return Array.from(new Uint8Array(digest)).map(byte => byte.toString(16).padStart(2, "0")).join("");
+      }
+      return "plain:" + text;
+    }
+
+    try {
+      const existing = JSON.parse(localStorage.getItem(SESSION_KEY) || "null");
+      if (existing && existing.role === "admin") {
+        window.location.replace("/");
+      }
+    } catch (error) {}
+
+    if (window.AOS) {
+      AOS.init({
+        duration: 750,
+        easing: "ease-out-cubic",
+        once: true,
+        offset: 35,
+        disable: window.matchMedia("(prefers-reduced-motion: reduce)").matches
+      });
+    }
+
+    const form = document.getElementById("loginForm");
+    const emailInput = document.getElementById("loginEmail");
+    const passwordInput = document.getElementById("loginPassword");
+    const toast = document.getElementById("toast");
+    let toastTimer;
+
+    function showToast(message) {
+      toast.textContent = message;
+      toast.classList.add("show");
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => toast.classList.remove("show"), 3400);
+    }
+
+    function setFieldError(input, message) {
+      const field = input.closest(".field");
+      const error = field.querySelector(".field-error");
+      input.classList.toggle("invalid", Boolean(message));
+      if (error) {
+        if (message) error.textContent = message;
+        error.classList.toggle("show", Boolean(message));
+      }
+    }
+
+    function clearErrors() {
+      [emailInput, passwordInput].forEach(input => setFieldError(input, ""));
+    }
+
+    form.querySelectorAll("input").forEach(input => {
+      input.addEventListener("input", () => setFieldError(input, ""));
+    });
+
+    document.querySelectorAll("[data-toggle]").forEach(button => {
+      button.addEventListener("click", () => {
+        const input = document.getElementById(button.dataset.toggle);
+        const reveal = input.type === "password";
+        input.type = reveal ? "text" : "password";
+        button.setAttribute("aria-label", reveal ? "Hide password" : "Show password");
+      });
+    });
+
+    document.getElementById("useDemo").addEventListener("click", () => {
+      emailInput.value = ADMIN_EMAIL;
+      passwordInput.value = ADMIN_PASSWORD;
+      clearErrors();
+      passwordInput.focus();
+      showToast("Demo admin credentials filled in — press Open dashboard.");
+    });
+
+    form.addEventListener("submit", async event => {
+      event.preventDefault();
+      clearErrors();
+
+      const email = emailInput.value.trim().toLowerCase();
+      const password = passwordInput.value;
+      let valid = true;
+
+      if (!email) {
+        setFieldError(emailInput, "Enter the admin email address.");
+        valid = false;
+      } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+        setFieldError(emailInput, "Enter a valid email address.");
+        valid = false;
+      }
+
+      if (!password) {
+        setFieldError(passwordInput, "Enter the admin password.");
+        valid = false;
+      } else if (password.length < 8) {
+        setFieldError(passwordInput, "Password must contain at least 8 characters.");
+        valid = false;
+      }
+
+      if (!valid) {
+        form.querySelector(".invalid")?.focus();
+        return;
+      }
+
+      const customHash = storedPasswordHash();
+      const matchesCustom = customHash ? (await sha256(password)) === customHash : false;
+      if (email !== ADMIN_EMAIL || (password !== ADMIN_PASSWORD && !matchesCustom)) {
+        setFieldError(passwordInput, "Incorrect admin credentials. Use the demo details below.");
+        showToast("Incorrect admin credentials — use the demo details below.");
+        passwordInput.focus();
+        return;
+      }
+
+      const session = {
+        name: "Admin",
+        email: ADMIN_EMAIL,
+        role: "admin",
+        mode: "login",
+        at: Date.now()
+      };
+
+      try {
+        localStorage.setItem(SESSION_KEY, JSON.stringify(session));
+        showToast("Signed in — opening the VERSO Coffee dashboard…");
+        setTimeout(() => window.location.assign("/"), 800);
+      } catch (error) {
+        showToast("Your browser blocked local storage. Enable it to continue.");
+      }
+    });
+
+    document.getElementById("forgotLink").addEventListener("click", event => {
+      event.preventDefault();
+      if (storedPasswordHash()) {
+        try { localStorage.removeItem(SECURITY_KEY); } catch (error) {}
+        showToast("Password reset to the demo default — use haven123.");
+      } else {
+        showToast("Demo only — use the admin credentials shown on this page.");
+      }
+    });
+  </script>
+</body>
+</html>

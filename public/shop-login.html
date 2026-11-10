@@ -1,0 +1,542 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#063d32" />
+  <title>VERSO Coffee — Member sign in</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Playfair+Display:ital,wght@0,500;0,600;1,500;1,600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --green: #063d32;
+      --green-2: #0b5143;
+      --green-3: #032a23;
+      --cream: #f8f3e9;
+      --cream-2: #eee6d8;
+      --gold: #c69b52;
+      --gold-2: #a97f39;
+      --ink: #18332d;
+      --muted: #7c837b;
+      --line: #d8d0c2;
+      --white: #fffdf8;
+      --danger: #a9433b;
+      --shadow: 0 30px 80px rgba(0, 25, 19, .2);
+    }
+    * { box-sizing: border-box; }
+    [hidden] { display: none !important; }
+    html, body { min-height: 100%; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at 8% 4%, rgba(198,155,82,.14), transparent 26%),
+        radial-gradient(circle at 94% 96%, rgba(11,81,67,.16), transparent 28%),
+        #e9e4da;
+      font-family: "DM Sans", sans-serif;
+    }
+    button, input { font: inherit; }
+    button { cursor: pointer; }
+    a { color: inherit; text-decoration: none; }
+    .wrap { width: min(1160px, 100% - 48px); margin: 0 auto; }
+    .topbar { padding: 28px 0 0; }
+    .topbar-inner { display: flex; align-items: center; justify-content: space-between; gap: 20px; }
+    .logo { display: flex; align-items: baseline; gap: 9px; color: var(--green); font-weight: 800; font-size: 21px; letter-spacing: .26em; }
+    .logo em { color: var(--gold); font-style: normal; }
+    .logo small { font-size: 9px; letter-spacing: .32em; font-weight: 700; color: var(--muted); text-transform: uppercase; }
+    .topnav { display: flex; align-items: center; gap: 22px; color: #5f6d65; font-size: 11px; font-weight: 600; }
+    .topnav a:hover { color: var(--green); }
+    .topnav .staff { padding: 8px 14px; border: 1px solid var(--line); border-radius: 999px; }
+    .topnav .staff:hover { background: var(--green); border-color: var(--green); color: var(--cream); }
+
+    .auth { padding: 26px 0 34px; }
+    .auth-card {
+      display: grid; grid-template-columns: 1.04fr .96fr;
+      min-height: 640px; overflow: hidden;
+      border: 1px solid rgba(255,255,255,.72); border-radius: 24px;
+      background: var(--cream); box-shadow: var(--shadow);
+    }
+    .form-side {
+      position: relative; z-index: 2; display: flex; align-items: center;
+      padding: 48px clamp(30px, 5vw, 68px);
+      background: var(--cream);
+    }
+    .form-inner { width: 100%; max-width: 390px; margin: auto; }
+    .eyebrow {
+      display: flex; align-items: center; gap: 10px; margin-bottom: 16px;
+      color: var(--gold-2); font-size: 9px; font-weight: 700;
+      letter-spacing: .26em; text-transform: uppercase;
+    }
+    .eyebrow::before { content: ""; width: 24px; height: 1px; background: var(--gold); }
+    h1 {
+      margin: 0; color: var(--green); font-family: "Playfair Display", serif;
+      font-size: clamp(36px, 4.4vw, 48px); font-weight: 500; line-height: 1.04; letter-spacing: -.04em;
+    }
+    h1 em { color: var(--gold-2); font-style: italic; }
+    .intro { margin: 13px 0 25px; color: var(--muted); font-size: 13px; line-height: 1.75; }
+    .tabs {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 4px;
+      margin-bottom: 24px; padding: 4px; border: 1px solid var(--line);
+      border-radius: 999px; background: rgba(255,255,255,.45);
+    }
+    .tabs button {
+      min-height: 38px; border: 0; border-radius: 999px;
+      background: transparent; color: #6d7a72; font-size: 11px; font-weight: 700;
+      transition: background .2s, color .2s, box-shadow .2s;
+    }
+    .tabs button:hover { color: var(--green); }
+    .tabs button.active { background: var(--green); color: var(--cream); box-shadow: 0 7px 16px rgba(6,61,50,.18); }
+    .field { position: relative; margin: 0 0 17px; }
+    .field label {
+      display: block; margin-bottom: 7px; color: #68756d;
+      font-size: 10px; font-weight: 700; letter-spacing: .09em; text-transform: uppercase;
+    }
+    .field input {
+      width: 100%; height: 47px; padding: 0 14px;
+      color: var(--ink); background: rgba(255,255,255,.5);
+      border: 1px solid var(--line); border-radius: 9px; outline: none;
+      transition: border-color .2s, box-shadow .2s, background .2s;
+    }
+    .field input[type="password"] { padding-right: 46px; }
+    .field input::placeholder { color: #a5a79e; }
+    .field input:focus { border-color: var(--gold); background: var(--white); box-shadow: 0 0 0 3px rgba(198,155,82,.13); }
+    .field input.invalid { border-color: var(--danger); }
+    .field-error { display: none; margin-top: 6px; color: var(--danger); font-size: 10.5px; line-height: 1.45; }
+    .field-error.show { display: block; }
+    .password-toggle {
+      position: absolute; right: 9px; bottom: 7px; width: 32px; height: 31px;
+      display: grid; place-items: center; border: 0; border-radius: 6px;
+      color: #7d887f; background: transparent;
+    }
+    .password-toggle:hover { color: var(--green); background: rgba(6,61,50,.06); }
+    .password-toggle svg { width: 16px; height: 16px; }
+    .submit-btn {
+      width: 100%; min-height: 50px; display: flex; justify-content: center; align-items: center;
+      margin-top: 6px; border: 0; border-radius: 999px; color: #fffdf8;
+      background: linear-gradient(110deg, var(--green), var(--green-2));
+      box-shadow: 0 10px 20px rgba(6,61,50,.17);
+      font-size: 12px; font-weight: 700; letter-spacing: .04em;
+      transition: transform .2s, box-shadow .2s, filter .2s;
+    }
+    .submit-btn:hover { transform: translateY(-2px); box-shadow: 0 14px 25px rgba(6,61,50,.24); filter: brightness(1.08); }
+    .submit-btn:active { transform: translateY(0); }
+    .switch { margin: 16px 0 0; color: #858b83; font-size: 11px; text-align: center; }
+    .switch button { padding: 0 0 2px; border: 0; border-bottom: 1px solid var(--gold); background: transparent; color: var(--green); font-weight: 700; }
+    .demo-box {
+      margin-top: 20px; padding: 13px 15px;
+      border: 1px dashed rgba(6,61,50,.22); border-radius: 12px;
+      background: rgba(255,253,248,.55);
+    }
+    .demo-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 8px; }
+    .demo-head > span { color: #68756d; font-size: 8.5px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; }
+    .use-demo {
+      padding: 4px 9px; border: 1px solid rgba(6,61,50,.2); border-radius: 999px;
+      background: transparent; color: var(--green); font-size: 8.5px; font-weight: 700;
+    }
+    .use-demo:hover { background: var(--green); color: var(--cream); }
+    .demo-row { display: flex; justify-content: space-between; align-items: center; gap: 14px; padding: 3px 0; font-size: 10.5px; }
+    .demo-row span { color: var(--muted); }
+    .demo-row code {
+      padding: 3px 7px; border-radius: 5px; background: rgba(6,61,50,.07);
+      color: var(--green); font-family: ui-monospace, "SFMono-Regular", Menlo, monospace; font-size: 10px;
+    }
+    .fineprint { margin: 16px 0 0; color: #9aa198; font-size: 9px; line-height: 1.7; text-align: center; }
+
+    .visual-side {
+      position: relative; z-index: 1; overflow: hidden; min-height: 100%;
+      background: var(--green);
+    }
+    .visual-side img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; opacity: .82; }
+    .visual-side::after {
+      content: ""; position: absolute; inset: 0;
+      background:
+        radial-gradient(ellipse at 80% 12%, rgba(198,155,82,.24), transparent 42%),
+        linear-gradient(160deg, rgba(4,40,33,.42), rgba(3,42,35,.92) 82%);
+    }
+    .visual-copy {
+      position: absolute; inset: 0; z-index: 2; display: flex; flex-direction: column;
+      justify-content: flex-end; padding: 48px clamp(30px, 4vw, 48px);
+      color: var(--cream);
+    }
+    .visual-kicker { color: var(--gold); font-size: 9px; font-weight: 700; letter-spacing: .28em; text-transform: uppercase; }
+    .visual-side h2 {
+      margin: 15px 0 13px; color: #fffaf0; font-family: "Playfair Display", serif;
+      font-size: clamp(36px, 4.6vw, 52px); font-weight: 500; line-height: 1.04; letter-spacing: -.035em;
+    }
+    .visual-side h2 em { color: #d6b579; font-style: italic; }
+    .visual-side p { margin: 0; max-width: 300px; color: rgba(248,243,233,.7); font-size: 12px; line-height: 1.8; }
+    .perks { display: grid; gap: 10px; margin: 24px 0 0; padding: 0; list-style: none; }
+    .perks li { display: flex; align-items: center; gap: 9px; color: rgba(248,243,233,.82); font-size: 10.5px; }
+    .perks li::before {
+      content: ""; width: 5px; height: 5px; border-radius: 50%; flex-shrink: 0;
+      background: var(--gold); box-shadow: 0 0 0 4px rgba(198,155,82,.14);
+    }
+    .visual-foot { margin-top: 30px; color: rgba(248,243,233,.4); font-size: 8.5px; letter-spacing: .2em; text-transform: uppercase; }
+
+    .toast {
+      position: fixed; left: 50%; bottom: 24px; z-index: 20;
+      padding: 13px 19px; max-width: calc(100% - 32px);
+      color: #fff; background: #153e34; border: 1px solid rgba(255,255,255,.13);
+      border-radius: 999px; box-shadow: 0 12px 35px rgba(0,0,0,.22);
+      font-size: 12px; opacity: 0; transform: translate(-50%, 12px);
+      pointer-events: none; transition: .25s ease;
+    }
+    .toast.show { opacity: 1; transform: translate(-50%, 0); }
+
+    @media (max-width: 900px) {
+      .auth-card { grid-template-columns: 1fr; min-height: 0; }
+      .visual-side { min-height: 250px; order: 0; }
+      .visual-copy { justify-content: flex-end; padding: 30px; }
+      .visual-side h2 { font-size: 38px; }
+      .perks { display: none; }
+      .visual-foot { display: none; }
+      .form-side { order: 1; padding: 38px 28px 34px; }
+      .form-inner { max-width: 440px; }
+    }
+    @media (max-width: 560px) {
+      .wrap { width: min(1160px, 100% - 28px); }
+      .topbar { padding-top: 18px; }
+      .topnav { gap: 12px; }
+      .topnav > a:first-child { display: none; }
+      .auth { padding-top: 18px; }
+      .auth-card { border-radius: 18px; }
+      .visual-side { min-height: 210px; }
+      .visual-side h2 { font-size: 32px; }
+      .visual-side p { font-size: 11px; }
+      .form-side { padding: 30px 21px 28px; }
+      .demo-row { flex-direction: column; align-items: flex-start; gap: 2px; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { scroll-behavior: auto !important; transition-duration: .01ms !important; animation-duration: .01ms !important; }
+    }
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <div class="wrap topbar-inner">
+      <a class="logo" href="/shop.html" aria-label="VERSO Coffee home">VER<em>SO</em><small>coffee</small></a>
+      <nav class="topnav" aria-label="Account navigation">
+        <a href="/shop.html">Back to shop</a>
+        <a class="staff" href="/login.html">Staff admin</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="auth">
+    <div class="wrap">
+      <section class="auth-card" aria-label="VERSO Coffee member access">
+        <div class="form-side">
+          <div class="form-inner">
+            <div class="eyebrow">VERSO Coffee · Members</div>
+            <h1 id="authTitle">Welcome <em>back.</em></h1>
+            <p class="intro" id="authIntro">Sign in to order ahead, keep your bag and pick up right where you left off.</p>
+
+            <div class="tabs" role="tablist" aria-label="Sign in or create an account">
+              <button type="button" class="active" data-mode="signin" role="tab" aria-selected="true">Sign in</button>
+              <button type="button" data-mode="signup" role="tab" aria-selected="false">Create account</button>
+            </div>
+
+            <form id="signinForm" class="auth-form" novalidate>
+              <div class="field">
+                <label for="signinEmail">Email address</label>
+                <input id="signinEmail" name="email" type="email" autocomplete="username" placeholder="you@example.com" required>
+                <div class="field-error">Enter a valid email address.</div>
+              </div>
+              <div class="field">
+                <label for="signinPassword">Password</label>
+                <input id="signinPassword" name="password" type="password" autocomplete="current-password" placeholder="Enter your password" required>
+                <button class="password-toggle" type="button" data-toggle="signinPassword" aria-label="Show password">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="M2.5 12s3.4-6 9.5-6 9.5 6 9.5 6-3.4 6-9.5 6-9.5-6-9.5-6Z"/><circle cx="12" cy="12" r="2.5"/></svg>
+                </button>
+                <div class="field-error">That password does not match this account.</div>
+              </div>
+              <button class="submit-btn" type="submit">Sign in to the shop <span aria-hidden="true">&nbsp;↗</span></button>
+              <p class="switch">New to VERSO Coffee? <button type="button" data-mode-jump="signup">Create an account</button></p>
+            </form>
+
+            <form id="signupForm" class="auth-form" novalidate hidden>
+              <div class="field">
+                <label for="signupName">Full name</label>
+                <input id="signupName" name="name" type="text" autocomplete="name" placeholder="Your full name" required minlength="2">
+                <div class="field-error">Please enter your name (at least 2 characters).</div>
+              </div>
+              <div class="field">
+                <label for="signupEmail">Email address</label>
+                <input id="signupEmail" name="email" type="email" autocomplete="email" placeholder="you@example.com" required>
+                <div class="field-error">Enter a valid email address.</div>
+              </div>
+              <div class="field">
+                <label for="signupPassword">Create password</label>
+                <input id="signupPassword" name="password" type="password" autocomplete="new-password" placeholder="At least 8 characters" required minlength="8">
+                <button class="password-toggle" type="button" data-toggle="signupPassword" aria-label="Show password">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="M2.5 12s3.4-6 9.5-6 9.5 6 9.5 6-3.4 6-9.5 6-9.5-6-9.5-6Z"/><circle cx="12" cy="12" r="2.5"/></svg>
+                </button>
+                <div class="field-error">Use 8+ characters with at least one letter and one number.</div>
+              </div>
+              <button class="submit-btn" type="submit">Create my account <span aria-hidden="true">&nbsp;↗</span></button>
+              <p class="switch">Already a member? <button type="button" data-mode-jump="signin">Sign in</button></p>
+            </form>
+
+            <div class="demo-box">
+              <div class="demo-head">
+                <span>Demo member account</span>
+                <button class="use-demo" type="button" id="useDemo">Use demo</button>
+              </div>
+              <div class="demo-row"><span>Email</span><code>guest@verso.coffee</code></div>
+              <div class="demo-row"><span>Password</span><code>coffee123</code></div>
+            </div>
+
+            <p class="fineprint">Demo accounts are saved in this browser only. No real accounts or payments are created.</p>
+          </div>
+        </div>
+
+        <aside class="visual-side" aria-label="VERSO Coffee">
+          <img src="https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?auto=format&fit=crop&w=1200&q=80" alt="A warm cup of coffee on a cafe table">
+          <div class="visual-copy">
+            <div class="visual-kicker">VERSO Coffee Roasters</div>
+            <h2>Slow mornings,<br><em>bold roasts.</em></h2>
+            <p>Your usual is waiting. Sign in to build your bag and order ahead for pickup.</p>
+            <ul class="perks">
+              <li>Save your favourite drinks</li>
+              <li>Skip the morning queue</li>
+              <li>Members-only seasonal drops</li>
+            </ul>
+            <div class="visual-foot">Phnom Penh · Since 2014</div>
+          </div>
+        </aside>
+      </section>
+    </div>
+  </main>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+  <script>
+    const USER_KEY = "verso_coffee_user";
+    const ACCOUNTS_KEY = "verso_coffee_accounts";
+    const DEMO = { name: "Guest", email: "guest@verso.coffee", password: "coffee123" };
+    const DEMO_HASH = "a3c47c16f93a8f757b80046860008d929ed6d7e0e12943a24c150170d47c359f";
+
+    function nextTarget() {
+      const raw = new URLSearchParams(window.location.search).get("next");
+      if (raw && /^\/shop(?:\.html)?(?:[?#].*)?$/.test(raw)) return raw;
+      return "/shop.html";
+    }
+
+    try {
+      const existing = JSON.parse(localStorage.getItem(USER_KEY) || "null");
+      if (existing && existing.email && existing.role === "customer") {
+        window.location.replace(nextTarget());
+      }
+    } catch (error) {}
+
+    const signinForm = document.getElementById("signinForm");
+    const signupForm = document.getElementById("signupForm");
+    const authTitle = document.getElementById("authTitle");
+    const authIntro = document.getElementById("authIntro");
+    const toast = document.getElementById("toast");
+    const modeButtons = document.querySelectorAll("[data-mode]");
+    let toastTimer;
+
+    function showToast(message) {
+      toast.textContent = message;
+      toast.classList.add("show");
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => toast.classList.remove("show"), 3400);
+    }
+
+    function saveJson(key, value) {
+      try {
+        localStorage.setItem(key, JSON.stringify(value));
+        return true;
+      } catch (error) {
+        showToast("Your browser blocked local storage. Enable it to continue.");
+        return false;
+      }
+    }
+
+    function readAccounts() {
+      let accounts;
+      try {
+        accounts = JSON.parse(localStorage.getItem(ACCOUNTS_KEY) || "[]");
+      } catch (error) {
+        accounts = [];
+      }
+      if (!Array.isArray(accounts)) accounts = [];
+      if (!accounts.some(account => account && account.email === DEMO.email)) {
+        accounts.push({ name: DEMO.name, email: DEMO.email, hash: DEMO_HASH });
+        saveJson(ACCOUNTS_KEY, accounts);
+      }
+      return accounts;
+    }
+
+    async function hashPassword(password) {
+      if (window.crypto && window.crypto.subtle) {
+        const bytes = new TextEncoder().encode(password);
+        const digest = await window.crypto.subtle.digest("SHA-256", bytes);
+        return Array.from(new Uint8Array(digest)).map(byte => byte.toString(16).padStart(2, "0")).join("");
+      }
+      return "plain:" + password;
+    }
+
+    function setFieldError(input, message) {
+      const field = input.closest(".field");
+      const error = field.querySelector(".field-error");
+      input.classList.toggle("invalid", Boolean(message));
+      if (error) {
+        if (message) error.textContent = message;
+        error.classList.toggle("show", Boolean(message));
+      }
+    }
+
+    function clearForm(form) {
+      form.querySelectorAll("input").forEach(input => setFieldError(input, ""));
+    }
+
+    function validEmail(value) {
+      return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+    }
+
+    function startSession(name, email) {
+      if (!saveJson(USER_KEY, { name: name, email: email, role: "customer", at: Date.now() })) return;
+      const first = name.trim().split(/\s+/)[0];
+      showToast("Welcome, " + first + " — opening the menu…");
+      setTimeout(() => window.location.assign(nextTarget()), 750);
+    }
+
+    function setMode(mode) {
+      const signup = mode === "signup";
+      signinForm.hidden = signup;
+      signupForm.hidden = !signup;
+      modeButtons.forEach(button => {
+        const active = button.dataset.mode === mode;
+        button.classList.toggle("active", active);
+        button.setAttribute("aria-selected", String(active));
+      });
+      authTitle.innerHTML = signup ? "Join the <em>club.</em>" : "Welcome <em>back.</em>";
+      authIntro.textContent = signup
+        ? "Create a member account to save favourites, keep your bag and order ahead."
+        : "Sign in to order ahead, keep your bag and pick up right where you left off.";
+      const target = signup ? document.getElementById("signupName") : document.getElementById("signinEmail");
+      window.setTimeout(() => target.focus({ preventScroll: true }), 50);
+    }
+
+    modeButtons.forEach(button => {
+      button.addEventListener("click", () => setMode(button.dataset.mode));
+    });
+    document.querySelectorAll("[data-mode-jump]").forEach(button => {
+      button.addEventListener("click", () => setMode(button.dataset.modeJump));
+    });
+
+    document.querySelectorAll("[data-toggle]").forEach(button => {
+      button.addEventListener("click", () => {
+        const input = document.getElementById(button.dataset.toggle);
+        const reveal = input.type === "password";
+        input.type = reveal ? "text" : "password";
+        button.setAttribute("aria-label", reveal ? "Hide password" : "Show password");
+      });
+    });
+
+    [signinForm, signupForm].forEach(form => {
+      form.querySelectorAll("input").forEach(input => {
+        input.addEventListener("input", () => setFieldError(input, ""));
+      });
+    });
+
+    document.getElementById("useDemo").addEventListener("click", () => {
+      setMode("signin");
+      document.getElementById("signinEmail").value = DEMO.email;
+      document.getElementById("signinPassword").value = DEMO.password;
+      clearForm(signinForm);
+      document.getElementById("signinPassword").focus();
+      showToast("Demo account filled in — press Sign in.");
+    });
+
+    signinForm.addEventListener("submit", async event => {
+      event.preventDefault();
+      clearForm(signinForm);
+
+      const emailInput = document.getElementById("signinEmail");
+      const passwordInput = document.getElementById("signinPassword");
+      const email = emailInput.value.trim().toLowerCase();
+      const password = passwordInput.value;
+      let valid = true;
+
+      if (!email) {
+        setFieldError(emailInput, "Enter your email address.");
+        valid = false;
+      } else if (!validEmail(email)) {
+        setFieldError(emailInput, "Enter a valid email address.");
+        valid = false;
+      }
+      if (!password) {
+        setFieldError(passwordInput, "Enter your password.");
+        valid = false;
+      }
+      if (!valid) {
+        signinForm.querySelector(".invalid")?.focus();
+        return;
+      }
+
+      const account = readAccounts().find(item => item.email.toLowerCase() === email);
+      const hash = await hashPassword(password);
+
+      if (!account || account.hash !== hash) {
+        setFieldError(passwordInput, "Email or password is incorrect. Try the demo account below.");
+        showToast("Email or password is incorrect — try the demo account below.");
+        passwordInput.focus();
+        return;
+      }
+
+      startSession(account.name, account.email);
+    });
+
+    signupForm.addEventListener("submit", async event => {
+      event.preventDefault();
+      clearForm(signupForm);
+
+      const nameInput = document.getElementById("signupName");
+      const emailInput = document.getElementById("signupEmail");
+      const passwordInput = document.getElementById("signupPassword");
+      const name = nameInput.value.trim();
+      const email = emailInput.value.trim().toLowerCase();
+      const password = passwordInput.value;
+      let valid = true;
+
+      if (name.length < 2) {
+        setFieldError(nameInput, "Please enter your name (at least 2 characters).");
+        valid = false;
+      }
+      if (!validEmail(email)) {
+        setFieldError(emailInput, email ? "Enter a valid email address." : "Enter your email address.");
+        valid = false;
+      }
+      if (password.length < 8 || !/[A-Za-z]/.test(password) || !/[0-9]/.test(password)) {
+        setFieldError(passwordInput, "Use 8+ characters with at least one letter and one number.");
+        valid = false;
+      }
+      if (!valid) {
+        signupForm.querySelector(".invalid")?.focus();
+        return;
+      }
+
+      const accounts = readAccounts();
+      if (accounts.some(account => account.email.toLowerCase() === email)) {
+        setFieldError(emailInput, "An account with this email already exists. Try signing in.");
+        showToast("That email already has an account — sign in instead.");
+        emailInput.focus();
+        return;
+      }
+
+      const hash = await hashPassword(password);
+      accounts.push({ name: name, email: email, hash: hash });
+      if (!saveJson(ACCOUNTS_KEY, accounts)) return;
+      startSession(name, email);
+    });
+
+    const initialMode = new URLSearchParams(window.location.search).get("mode");
+    setMode(initialMode === "signup" ? "signup" : "signin");
+  </script>
+</body>
+</html>

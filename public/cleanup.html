@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>VERSO Coffee — Local cleanup</title>
+  <style>
+    :root {
+      --cream: #f7f1e6;
+      --cream-2: #eee6d8;
+      --green: #063d32;
+      --gold: #c69b52;
+      --muted: #8a8f85;
+      --line: #d8d0c2;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; min-height: 100vh; display: grid; place-items: center;
+      padding: 28px; background: radial-gradient(circle at 20% 10%, #fffdf8, var(--cream) 55%);
+      color: var(--green); font-family: "DM Sans", system-ui, sans-serif;
+    }
+    .card {
+      width: min(560px, 100%); background: #fffdf8; border: 1px solid var(--line);
+      border-radius: 22px; padding: 30px 30px 26px; box-shadow: 0 26px 60px rgba(0, 25, 19, .1);
+    }
+    .eyebrow {
+      font-size: 10px; font-weight: 700; letter-spacing: .18em; text-transform: uppercase;
+      color: var(--gold); margin-bottom: 8px;
+    }
+    h1 { margin: 0 0 6px; font-family: "Playfair Display", Georgia, serif; font-size: 28px; font-weight: 600; }
+    p { margin: 0 0 18px; color: var(--muted); font-size: 13px; line-height: 1.6; }
+    .status {
+      display: flex; align-items: center; gap: 10px; padding: 13px 15px; border-radius: 12px;
+      background: rgba(6, 61, 50, .06); border: 1px solid rgba(6, 61, 50, .12);
+      font-size: 13px; font-weight: 600; margin-bottom: 16px;
+    }
+    .status .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--gold); flex: 0 0 auto; }
+    .status.ok { background: rgba(30, 120, 80, .08); border-color: rgba(30, 120, 80, .2); }
+    .status.ok .dot { background: #1e7850; }
+    ul { margin: 0 0 18px; padding: 0; list-style: none; display: grid; gap: 7px; }
+    li {
+      display: flex; justify-content: space-between; gap: 14px; padding: 9px 12px;
+      border: 1px solid var(--line); border-radius: 10px; background: var(--cream);
+      font-size: 11.5px; color: #5c665e; font-family: ui-monospace, "SFMono-Regular", Consolas, monospace;
+    }
+    li b { color: var(--green); }
+    li span { color: #9aa198; }
+    .actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 6px; }
+    a, button {
+      display: inline-flex; align-items: center; justify-content: center; gap: 7px;
+      padding: 11px 17px; border-radius: 999px; font-size: 12px; font-weight: 700;
+      text-decoration: none; cursor: pointer; transition: .2s; border: 1px solid var(--line);
+      background: var(--cream); color: var(--green);
+    }
+    a.primary { background: var(--green); border-color: var(--green); color: var(--cream); }
+    a.primary:hover { background: #0a4a3c; }
+    button:hover { border-color: var(--green); }
+    .note { margin-top: 18px; padding-top: 14px; border-top: 1px dashed var(--line); color: #9aa198; font-size: 10.5px; }
+  </style>
+</head>
+<body>
+  <main class="card">
+    <div class="eyebrow">Local demo utility</div>
+    <h1>Cleaning localhost data</h1>
+    <p>This page clears VERSO Coffee demo data stored in this browser. You stay signed in; use “Sign out too” to clear sessions as well.</p>
+
+    <div class="status" id="status"><span class="dot"></span><span id="statusText">Looking for local data…</span></div>
+    <ul id="removed"></ul>
+
+    <div class="actions">
+      <a class="primary" href="/">Back to dashboard</a>
+      <a href="/shop.html">Open the shop</a>
+      <button type="button" id="signOut">Sign out too</button>
+    </div>
+
+    <p class="note">Delete <code>public/cleanup.html</code> after you are done so it does not ship with the app.</p>
+  </main>
+
+  <script>
+    (function () {
+      var PRESERVE = { verso_session: true, verso_coffee_user: true };
+      var removed = document.getElementById("removed");
+      var status = document.getElementById("status");
+      var statusText = document.getElementById("statusText");
+      var cleared = [];
+
+      Object.keys(localStorage).forEach(function (key) {
+        if (!key || key.indexOf("verso") !== 0) return;
+        if (PRESERVE[key]) return;
+        try {
+          var size = (localStorage.getItem(key) || "").length;
+          localStorage.removeItem(key);
+          cleared.push({ key: key, size: size });
+        } catch (error) {}
+      });
+
+      function render() {
+        if (!cleared.length) {
+          status.className = "status ok";
+          statusText.textContent = "Nothing to clean — local demo data is already empty.";
+          return;
+        }
+        status.className = "status ok";
+        statusText.textContent = "Cleared " + cleared.length + " local key" + (cleared.length === 1 ? "" : "s") + ".";
+        cleared.forEach(function (entry) {
+          var li = document.createElement("li");
+          var name = document.createElement("b");
+          name.textContent = entry.key;
+          var detail = document.createElement("span");
+          detail.textContent = entry.size ? entry.size + " chars" : "empty";
+          li.appendChild(name);
+          li.appendChild(detail);
+          removed.appendChild(li);
+        });
+      }
+
+      render();
+
+      document.getElementById("signOut").addEventListener("click", function () {
+        ["verso_session", "verso_coffee_user"].forEach(function (key) {
+          try { localStorage.removeItem(key); } catch (error) {}
+        });
+        statusText.textContent = "Signed out. Local sessions cleared.";
+        var extra = document.createElement("li");
+        var name = document.createElement("b");
+        name.textContent = "verso_session + verso_coffee_user";
+        var detail = document.createElement("span");
+        detail.textContent = "removed";
+        extra.appendChild(name);
+        extra.appendChild(detail);
+        removed.appendChild(extra);
+      });
+    })();
+  </script>
+</body>
+</html>
