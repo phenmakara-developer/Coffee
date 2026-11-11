@@ -6,7 +6,8 @@ import {
   CalendarDays, RefreshCw, Star, Store, PauseCircle, PlayCircle, Save,
   ChevronDown, Sparkles, Leaf, Coffee, Users, Snowflake, UserRound,
   ImagePlus, Upload, RotateCcw, Pencil, ShieldCheck, KeyRound, BadgeCheck,
-  AtSign, Lock, Phone, Briefcase, Eye, EyeOff, Mail,
+  AtSign, Lock, Phone, Briefcase, Eye, EyeOff, Mail, Tags, CreditCard,
+  Trash2, Plus, XCircle, Banknote, Wallet, Package, Download, BarChart3,
 } from 'lucide-react'
 import {
   AreaChart, Area, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
@@ -14,6 +15,7 @@ import {
 } from 'recharts'
 import {
   nav, API, HOUSE_MENU, FALLBACK_MENU, FALLBACK_IMAGE, defaultSettings,
+  defaultCategories,
 } from './data'
 
 const ORDERS_KEY = 'verso_coffee_orders'
@@ -21,6 +23,8 @@ const ACCOUNTS_KEY = 'verso_coffee_accounts'
 const SETTINGS_KEY = 'verso_coffee_settings'
 const SOLD_OUT_KEY = 'verso_coffee_sold_out'
 const PHOTOS_KEY = 'verso_coffee_photos'
+const PRODUCTS_KEY = 'verso_coffee_products'
+const CATEGORIES_KEY = 'verso_coffee_categories'
 const PROFILE_KEY = 'verso_admin_profile'
 const SECURITY_KEY = 'verso_admin_security'
 
@@ -65,9 +69,45 @@ const readPhotos = () => {
   return stored && typeof stored === 'object' && !Array.isArray(stored) ? stored : {}
 }
 
+const readProducts = () => {
+  const stored = readJSON(PRODUCTS_KEY, [])
+  return Array.isArray(stored) ? stored.filter(product => product && product.id) : []
+}
+
+const readCategories = () => {
+  const stored = readJSON(CATEGORIES_KEY, null)
+  if (Array.isArray(stored) && stored.length) return stored.filter(item => item && item.name)
+  return defaultCategories
+}
+
+const writeProducts = products => {
+  try { localStorage.setItem(PRODUCTS_KEY, JSON.stringify(products)) } catch (error) {}
+}
+
+const writeCategories = categories => {
+  try { localStorage.setItem(CATEGORIES_KEY, JSON.stringify(categories)) } catch (error) {}
+}
+
+const STATUS_META = {
+  new: { label: 'New', tone: 'new' },
+  preparing: { label: 'Preparing', tone: 'prep' },
+  ready: { label: 'Ready', tone: 'ready' },
+  completed: { label: 'Completed', tone: 'good' },
+  cancelled: { label: 'Cancelled', tone: 'cancelled' },
+}
+
+const LOGIN_PATH = import.meta.env.DEV ? '/login.html' : '/admin/login'
+
+const orderStatus = order => (
+  STATUS_META[order?.status] ? order.status : order?.completed ? 'completed' : 'new'
+)
+const isComplete = order => orderStatus(order) === 'completed'
+const isCancelled = order => orderStatus(order) === 'cancelled'
+const isOpenOrder = order => !isComplete(order) && !isCancelled(order)
+
 const defaultProfile = {
   name: 'Admin',
-  email: 'admin@verso.coffee',
+  email: 'admin@coffee.com',
   title: 'Store manager',
   phone: '+855 12 345 678',
   location: 'Street 240, Phnom Penh',
@@ -89,15 +129,6 @@ const readProfile = session => {
 const readSecurity = () => {
   const stored = readJSON(SECURITY_KEY, null)
   return stored && typeof stored === 'object' && !Array.isArray(stored) ? stored : {}
-}
-
-const sha256 = async text => {
-  if (window.crypto?.subtle) {
-    const bytes = new TextEncoder().encode(text)
-    const digest = await window.crypto.subtle.digest('SHA-256', bytes)
-    return Array.from(new Uint8Array(digest)).map(byte => byte.toString(16).padStart(2, '0')).join('')
-  }
-  return 'plain:' + text
 }
 
 const formatJoined = value => {
@@ -144,7 +175,6 @@ const readImageFile = file => new Promise((resolve, reject) => {
 const money = value => `$${Number(value || 0).toFixed(2)}`
 const orderItems = order => (Array.isArray(order?.items) ? order.items : [])
 const orderUnits = order => orderItems(order).reduce((sum, item) => sum + Number(item.quantity || 0), 0)
-const isComplete = order => order.status === 'completed'
 const sameDay = (value, compare = new Date()) => {
   const date = new Date(value)
   return !Number.isNaN(date.getTime()) && date.toDateString() === compare.toDateString()
@@ -188,26 +218,24 @@ const normalizeDrink = (item, category, index) => {
 
 const pageFromHash = () => {
   const hash = window.location.hash.slice(1).toLowerCase()
-  return nav.find(item => item.label.toLowerCase() === hash)?.label ?? 'Overview'
+  return nav.find(item => item.label.toLowerCase() === hash)?.label ?? 'Dashboard'
 }
 
 const overviewMeta = {
+  Dashboard: ['Dashboard', 'Revenue, orders and the health of the shop at a glance.'],
+  Products: ['Products', 'Add, edit and manage every drink on the menu.'],
+  Categories: ['Categories', 'Group the menu so customers can browse quickly.'],
   Orders: ['Orders', 'Every pickup, from new to completed.'],
-  Menu: ['Menu', 'The drinks currently pouring at VERSO Coffee.'],
   Customers: ['Customers', 'The people who keep the counter busy.'],
-  Insights: ['Insights', 'A clearer read on sales, drinks and habits.'],
+  Payments: ['Payments', 'Track paid, pending and cancelled order value.'],
+  Reports: ['Reports', 'A clearer read on sales, drinks and habits.'],
   Profile: ['Profile', 'Your account, security and recent activity.'],
   Settings: ['Settings', 'Store details and how ordering works.'],
 }
 
 function App() {
-  const session = useMemo(() => {
-    try {
-      return JSON.parse(localStorage.getItem('verso_session') || 'null')
-    } catch (error) {
-      return null
-    }
-  }, [])
+  const [session, setSession] = useState(null)
+  const [authReady, setAuthReady] = useState(false)
   const [active, setActive] = useState(pageFromHash)
   const [orders, setOrders] = useState(readOrders)
   const [accounts, setAccounts] = useState(readAccounts)
@@ -215,6 +243,8 @@ function App() {
   const [menuLoading, setMenuLoading] = useState(true)
   const [menuSource, setMenuSource] = useState('loading')
   const [menuError, setMenuError] = useState('')
+  const [products, setProducts] = useState(readProducts)
+  const [categories, setCategories] = useState(readCategories)
   const [soldOut, setSoldOut] = useState(readSoldOut)
   const [photos, setPhotos] = useState(readPhotos)
   const [settings, setSettings] = useState(readSettings)
@@ -244,10 +274,39 @@ function App() {
     noticeTimer.current = window.setTimeout(() => setNotice(''), 3200)
   }
 
-  const logout = () => {
+  const logout = async () => {
+    try { await fetch('/api/admin/logout', { method: 'POST', credentials: 'include' }) } catch (error) {}
     try { localStorage.removeItem('verso_session') } catch (error) {}
-    window.location.assign('/login.html')
+    window.location.assign(LOGIN_PATH)
   }
+
+  useEffect(() => {
+    let cancelled = false
+    const verifySession = async () => {
+      try {
+        const response = await fetch('/api/admin/session', { credentials: 'include', cache: 'no-store' })
+        if (!response.ok) throw new Error('unauthenticated')
+        const data = await response.json()
+        if (cancelled) return
+        if (!data.authenticated) {
+          window.location.replace(LOGIN_PATH)
+          return
+        }
+        setSession({
+          name: data.admin?.name || 'Admin',
+          email: data.admin?.email || defaultProfile.email,
+          role: 'admin',
+          mode: 'login',
+          at: data.admin?.at || Date.now(),
+        })
+        setAuthReady(true)
+      } catch (error) {
+        if (!cancelled) window.location.replace(LOGIN_PATH)
+      }
+    }
+    verifySession()
+    return () => { cancelled = true }
+  }, [])
 
   useEffect(() => {
     AOS.init({ duration: 750, easing: 'ease-out-cubic', once: true, offset: 35, delay: 40 })
@@ -292,9 +351,11 @@ function App() {
   const loadMenu = async (quiet = false) => {
     setMenuLoading(true)
     setMenuError('')
+    const controller = new AbortController()
+    const timeout = window.setTimeout(() => controller.abort(), 6000)
     try {
       const groups = await Promise.all(Object.entries(API).map(async ([category, url]) => {
-        const response = await fetch(url, { headers: { Accept: 'application/json' } })
+        const response = await fetch(url, { headers: { Accept: 'application/json' }, signal: controller.signal })
         if (!response.ok) throw new Error(category + ' menu unavailable')
         const data = await response.json()
         if (!Array.isArray(data)) throw new Error(category + ' menu unavailable')
@@ -312,6 +373,7 @@ function App() {
       setMenuSource('fallback')
       if (!quiet) setMenuError('Live menu unavailable — showing house favourites.')
     } finally {
+      window.clearTimeout(timeout)
       setMenuLoading(false)
     }
   }
@@ -319,6 +381,50 @@ function App() {
   useEffect(() => {
     loadMenu()
   }, [])
+
+  useEffect(() => {
+    if (products.length || !menu.length) return
+    const seeded = menu.map(drink => ({
+      ...drink,
+      available: !soldOut.has(drink.id),
+      createdAt: new Date().toISOString(),
+    }))
+    setProducts(seeded)
+    writeProducts(seeded)
+  }, [menu, products.length])
+
+  useEffect(() => {
+    if (!products.length) return
+    const names = new Set(categories.map(category => category.name))
+    const findName = matcher => categories.find(category => matcher(category.name.toLowerCase()))?.name
+    const hotName = findName(name => name.includes('hot') || name.includes('warm') || name.includes('espresso'))
+      || categories[0]?.name || 'Hot'
+    const icedName = findName(name => name.includes('iced') || name.includes('cold') || name.includes('ice'))
+      || hotName
+    let repaired = false
+    const fixed = products.map(product => {
+      if (names.has(product.category)) return product
+      const haystack = `${product.title || ''} ${product.description || ''} ${product.id || ''}`.toLowerCase()
+      const isIced = haystack.includes('iced') || haystack.includes('cold')
+      repaired = true
+      return { ...product, category: isIced ? icedName : hotName }
+    })
+    if (repaired) {
+      setProducts(fixed)
+      writeProducts(fixed)
+    }
+    const missing = [...new Set(fixed.map(product => product.category))].filter(name => !names.has(name))
+    if (missing.length) {
+      const additions = missing.map(name => ({
+        id: 'cat-' + name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, ''),
+        name,
+        description: '',
+      }))
+      const next = [...categories, ...additions]
+      setCategories(next)
+      writeCategories(next)
+    }
+  }, [products, categories])
 
   const refreshOrders = () => {
     setOrders(readOrders())
@@ -331,21 +437,32 @@ function App() {
     notify('Reloading the live menu')
   }
 
-  const completeOrder = id => {
+  const setOrderStatus = (id, status) => {
+    const meta = STATUS_META[status]
+    if (!meta) return
     const next = readOrders().map(order => (
-      order.id === id ? { ...order, status: 'completed', completedAt: new Date().toISOString() } : order
+      order.id === id
+        ? {
+          ...order,
+          status,
+          completed: status === 'completed',
+          completedAt: status === 'completed' ? new Date().toISOString() : order.completedAt,
+        }
+        : order
     ))
     setOrders(next)
     writeOrders(next)
-    notify(`Order ${id} marked as completed`)
+    notify(`Order ${id} marked ${meta.label.toLowerCase()}`)
   }
+
+  const completeOrder = id => setOrderStatus(id, 'completed')
 
   const completeAllOrders = () => {
     const current = readOrders()
-    const pending = current.filter(order => !isComplete(order)).length
+    const pending = current.filter(isOpenOrder).length
     if (!pending) return
     const next = current.map(order => (
-      isComplete(order) ? order : { ...order, status: 'completed', completedAt: new Date().toISOString() }
+      isOpenOrder(order) ? { ...order, status: 'completed', completed: true, completedAt: new Date().toISOString() } : order
     ))
     setOrders(next)
     writeOrders(next)
@@ -356,6 +473,86 @@ function App() {
     setSettings(next)
     try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(next)) } catch (error) {}
     notify(message)
+  }
+
+  const saveProduct = (draft, id) => {
+    const clean = {
+      title: String(draft.title || '').trim(),
+      description: String(draft.description || '').trim(),
+      category: String(draft.category || 'Hot').trim(),
+      price: Math.max(0, Number(draft.price) || 0),
+      ingredients: Array.isArray(draft.ingredients)
+        ? draft.ingredients
+        : String(draft.ingredients || '').split(',').map(item => item.trim()).filter(Boolean),
+      image: String(draft.image || '').trim() || FALLBACK_IMAGE,
+      fallbackImage: draft.fallbackImage || FALLBACK_IMAGE,
+      signature: Boolean(draft.signature),
+      available: draft.available !== false,
+    }
+    const next = id
+      ? products.map(product => (product.id === id ? { ...product, ...clean } : product))
+      : [{
+        ...clean,
+        id: 'prod-' + Date.now().toString(36),
+        createdAt: new Date().toISOString(),
+      }, ...products]
+    setProducts(next)
+    writeProducts(next)
+    const targetId = id || next[0].id
+    const sold = new Set(soldOut)
+    if (clean.available) sold.delete(targetId)
+    else sold.add(targetId)
+    setSoldOut(sold)
+    try { localStorage.setItem(SOLD_OUT_KEY, JSON.stringify([...sold])) } catch (error) {}
+    notify(id ? 'Product updated' : 'Product added to the menu')
+  }
+
+  const deleteProduct = id => {
+    if (!window.confirm('Delete this product from the menu?')) return
+    const next = products.filter(product => product.id !== id)
+    setProducts(next)
+    writeProducts(next)
+    const sold = new Set(soldOut)
+    sold.delete(id)
+    setSoldOut(sold)
+    try { localStorage.setItem(SOLD_OUT_KEY, JSON.stringify([...sold])) } catch (error) {}
+    notify('Product deleted')
+  }
+
+  const saveCategory = (draft, id) => {
+    const name = String(draft.name || '').trim()
+    if (!name) return
+    const clean = { name, description: String(draft.description || '').trim() }
+    const previous = id ? categories.find(category => category.id === id) : null
+    const next = id
+      ? categories.map(category => (category.id === id ? { ...category, ...clean } : category))
+      : [...categories, { ...clean, id: 'cat-' + Date.now().toString(36) }]
+    setCategories(next)
+    writeCategories(next)
+    if (previous && previous.name !== name) {
+      const nextProducts = products.map(product => (
+        product.category === previous.name ? { ...product, category: name } : product
+      ))
+      setProducts(nextProducts)
+      writeProducts(nextProducts)
+      if (menuFilter === previous.name) setMenuFilter(name)
+    }
+    notify(id ? 'Category updated' : 'Category added')
+  }
+
+  const deleteCategory = id => {
+    const category = categories.find(item => item.id === id)
+    if (!category) return
+    const inUse = products.filter(product => product.category === category.name).length
+    if (inUse) {
+      notify(`${inUse} product${inUse === 1 ? '' : 's'} still use ${category.name} — move them first`)
+      return
+    }
+    if (!window.confirm(`Delete the ${category.name} category?`)) return
+    const next = categories.filter(item => item.id !== id)
+    setCategories(next)
+    writeCategories(next)
+    notify('Category deleted')
   }
 
   const toggleSoldOut = id => {
@@ -389,13 +586,15 @@ function App() {
   }
 
   const cleanLocalData = () => {
-    if (!window.confirm('Clear all local demo data? Orders, customers, cart, sold-out drinks, product photos and settings will be removed from this browser.')) return
-    [ORDERS_KEY, ACCOUNTS_KEY, SETTINGS_KEY, SOLD_OUT_KEY, PHOTOS_KEY, 'verso_coffee_cart']
+    if (!window.confirm('Clear all local demo data? Orders, customers, cart, sold-out drinks, product photos, products, categories and settings will be removed from this browser.')) return
+    [ORDERS_KEY, ACCOUNTS_KEY, SETTINGS_KEY, SOLD_OUT_KEY, PHOTOS_KEY, PRODUCTS_KEY, CATEGORIES_KEY, 'verso_coffee_cart']
       .forEach(key => { try { localStorage.removeItem(key) } catch (error) {} })
     setOrders([])
     setAccounts([])
     setSoldOut(new Set())
     setPhotos({})
+    setProducts([])
+    setCategories(defaultCategories)
     setSettings(defaultSettings)
     notify('Local demo data cleaned')
   }
@@ -408,31 +607,35 @@ function App() {
   }
 
   const changePassword = async (currentPassword, nextPassword) => {
-    const currentHash = await sha256(currentPassword)
-    const demoHash = await sha256('haven123')
-    const expected = security.hash || demoHash
-    if (currentHash !== expected) throw new Error('Current password is incorrect.')
-    const next = { hash: await sha256(nextPassword), updatedAt: new Date().toISOString() }
-    try {
-      localStorage.setItem(SECURITY_KEY, JSON.stringify(next))
-      setSecurity(next)
-    } catch (error) {
-      throw new Error('Could not save the new password in this browser.')
-    }
+    const response = await fetch('/api/admin/password', {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ currentPassword, newPassword: nextPassword }),
+    })
+    const data = await response.json().catch(() => ({}))
+    if (!response.ok) throw new Error(data.error || 'Could not update the password.')
+    const next = { updatedAt: data.updatedAt || new Date().toISOString() }
+    try { localStorage.setItem(SECURITY_KEY, JSON.stringify(next)) } catch (error) {}
+    setSecurity(next)
     notify('Password updated')
   }
 
-  const resetPassword = () => {
+  const resetPassword = async () => {
+    const response = await fetch('/api/admin/password/reset', { method: 'POST', credentials: 'include' })
+    const data = await response.json().catch(() => ({}))
+    if (!response.ok) throw new Error(data.error || 'Could not reset the password.')
     try { localStorage.removeItem(SECURITY_KEY) } catch (error) {}
     setSecurity({})
-    notify('Password reset to the demo default')
+    notify('Password reset to the initial admin password')
   }
 
   const todayOrders = useMemo(
     () => orders.filter(order => sameDay(order.createdAt)),
     [orders],
   )
-  const newOrders = useMemo(() => orders.filter(order => !isComplete(order)), [orders])
+  const newOrders = useMemo(() => orders.filter(isOpenOrder), [orders])
+  const cancelledOrders = useMemo(() => orders.filter(isCancelled), [orders])
   const todayRevenue = useMemo(
     () => todayOrders.reduce((sum, order) => sum + Number(order.total || 0), 0),
     [todayOrders],
@@ -450,6 +653,12 @@ function App() {
     [orders],
   )
   const averageOrder = orders.length ? totalRevenue / orders.length : 0
+
+  const statusCounts = useMemo(() => {
+    const counts = { new: 0, preparing: 0, ready: 0, completed: 0, cancelled: 0 }
+    orders.forEach(order => { counts[orderStatus(order)] += 1 })
+    return counts
+  }, [orders])
 
   const customerRows = useMemo(() => {
     const rows = new Map()
@@ -523,43 +732,73 @@ function App() {
     })
   }, [orders, salesRange])
 
-  const hotCount = menu.filter(drink => drink.category === 'Hot').length
-  const icedCount = menu.filter(drink => drink.category === 'Iced').length
-  const signatureCount = menu.filter(drink => drink.signature).length
-  const averagePrice = menu.length
-    ? menu.reduce((sum, drink) => sum + drink.price, 0) / menu.length
+  const paymentRows = useMemo(() => orders.map(order => {
+    const status = isComplete(order) ? 'Paid' : isCancelled(order) ? 'Refunded' : 'Pending'
+    return {
+      id: 'PAY-' + order.id,
+      orderId: order.id,
+      customer: order.customer?.name || 'Guest',
+      email: order.customer?.email || 'Walk-in customer',
+      amount: Number(order.total || 0),
+      method: order.paymentMethod || 'Card',
+      status,
+      createdAt: order.createdAt,
+    }
+  }).sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0)), [orders])
+
+  const collectedPayments = paymentRows.filter(row => row.status === 'Paid').reduce((sum, row) => sum + row.amount, 0)
+  const pendingPayments = paymentRows.filter(row => row.status === 'Pending').reduce((sum, row) => sum + row.amount, 0)
+  const refundedPayments = paymentRows.filter(row => row.status === 'Refunded').reduce((sum, row) => sum + row.amount, 0)
+
+  const hotCount = products.filter(drink => drink.category === 'Hot').length
+  const icedCount = products.filter(drink => drink.category === 'Iced').length
+  const signatureCount = products.filter(drink => drink.signature).length
+  const averagePrice = products.length
+    ? products.reduce((sum, drink) => sum + Number(drink.price || 0), 0) / products.length
     : 0
-  const displayMenu = useMemo(
-    () => menu.map(drink => {
+  const displayProducts = useMemo(
+    () => products.map(drink => {
       const custom = storedPhoto(photos, drink.id)
-      return custom ? { ...drink, image: custom } : drink
+      return {
+        ...drink,
+        image: custom || drink.image,
+        available: !soldOut.has(drink.id),
+      }
     }),
-    [menu, photos],
+    [products, photos, soldOut],
+  )
+  const productCategories = useMemo(
+    () => categories.map(category => ({
+      ...category,
+      count: products.filter(product => product.category === category.name).length,
+    })),
+    [categories, products],
   )
 
-  const searchable = ['Orders', 'Menu', 'Customers'].includes(active)
+  const searchable = ['Orders', 'Products', 'Customers'].includes(active)
   const searchPlaceholder = active === 'Orders'
     ? 'Search orders or customers...'
-    : active === 'Menu'
-      ? 'Search the menu...'
+    : active === 'Products'
+      ? 'Search products...'
       : 'Search customers...'
   const needle = search.trim().toLowerCase()
 
   const filteredOrders = orders.filter(order => {
-    if (orderFilter === 'New' && isComplete(order)) return false
+    if (orderFilter === 'New' && !isOpenOrder(order)) return false
     if (orderFilter === 'Completed' && !isComplete(order)) return false
+    if (orderFilter === 'Cancelled' && !isCancelled(order)) return false
     if (!needle) return true
     const customer = order.customer || {}
     const items = orderItems(order).map(item => item.title).join(' ')
     return `${order.id} ${customer.name || ''} ${customer.email || ''} ${items}`.toLowerCase().includes(needle)
   })
 
-  const filteredMenu = displayMenu.filter(drink => {
-    if (menuFilter === 'Hot' && drink.category !== 'Hot') return false
-    if (menuFilter === 'Iced' && drink.category !== 'Iced') return false
+  const filteredProducts = displayProducts.filter(drink => {
     if (menuFilter === 'Signature' && !drink.signature) return false
+    if (menuFilter !== 'All' && menuFilter !== 'Signature' && drink.category !== menuFilter) return false
     if (!needle) return true
-    return `${drink.title} ${drink.description} ${drink.ingredients.join(' ')}`.toLowerCase().includes(needle)
+    const ingredients = Array.isArray(drink.ingredients) ? drink.ingredients.join(' ') : ''
+    return `${drink.title} ${drink.description} ${ingredients}`.toLowerCase().includes(needle)
   })
 
   const filteredCustomers = customerRows.filter(customer => (
@@ -575,14 +814,14 @@ function App() {
     if (active === 'Orders') {
       return <button className="ghost-button" onClick={refreshOrders}><RefreshCw size={15} /> Refresh orders</button>
     }
-    if (active === 'Menu') {
-      return <button className="ghost-button" onClick={refreshMenu} disabled={menuLoading}><RefreshCw size={15} /> Refresh menu</button>
+    if (active === 'Products') {
+      return <button className="ghost-button" onClick={refreshMenu} disabled={menuLoading}><RefreshCw size={15} /> Refresh live menu</button>
     }
-    if (active === 'Customers') {
+    if (active === 'Customers' || active === 'Payments') {
       return <button className="ghost-button" onClick={() => setActive('Orders')}>View orders <ArrowUpRight size={15} /></button>
     }
-    if (active === 'Insights') {
-      return <button className="ghost-button" onClick={() => setActive('Menu')}>Browse menu <ArrowUpRight size={15} /></button>
+    if (active === 'Reports' || active === 'Categories') {
+      return <button className="ghost-button" onClick={() => setActive('Products')}>Browse products <ArrowUpRight size={15} /></button>
     }
     return <a className="ghost-button" href="/shop.html" target="_blank" rel="noreferrer">Customer view <ArrowUpRight size={15} /></a>
   })()
@@ -592,8 +831,17 @@ function App() {
       setActive('Orders')
       notify(`${newOrders.length} new order${newOrders.length === 1 ? '' : 's'} waiting for pickup`)
     } else {
-      notify('You are all caught up — no new orders.')
+      notify('You are all caught up - no new orders.')
     }
+  }
+
+  if (!authReady) {
+    return (
+      <div className="auth-loading" role="status" aria-live="polite">
+        <span className="auth-loading-spinner" aria-hidden="true" />
+        <p>Checking admin access...</p>
+      </div>
+    )
   }
 
   return (
@@ -624,10 +872,14 @@ function App() {
                 <Icon size={18} />
                 <span>{item.label}</span>
                 {item.label === 'Orders' && newOrders.length > 0 && <i className="nav-count nav-count-new">{newOrders.length}</i>}
-                {item.label === 'Menu' && menu.length > 0 && <i className="nav-count">{menu.length}</i>}
+                {item.label === 'Products' && products.length > 0 && <i className="nav-count">{products.length}</i>}
               </button>
             )
           })}
+          <button className="nav-item nav-logout" onClick={logout}>
+            <LogOut size={18} />
+            <span>Logout</span>
+          </button>
         </nav>
 
         <div className="sidebar-bottom">
@@ -675,11 +927,11 @@ function App() {
         </header>
 
         <div className="content">
-          {active !== 'Overview' && (
+          {active !== 'Dashboard' && (
             <PageHeader active={active} action={pageAction} />
           )}
 
-          {active === 'Overview' && (
+          {active === 'Dashboard' && (
             <OverviewPage
               greeting={greeting}
               firstName={firstName}
@@ -690,7 +942,9 @@ function App() {
               todayRevenue={todayRevenue}
               todayUnits={todayUnits}
               totalRevenue={totalRevenue}
-              menu={menu}
+              totalOrders={orders.length}
+              totalProducts={products.length}
+              statusCounts={statusCounts}
               customerCount={customerRows.length}
               memberCount={accounts.length}
               salesData={salesSeries}
@@ -712,31 +966,44 @@ function App() {
               setOrderFilter={setOrderFilter}
               onComplete={completeOrder}
               onCompleteAll={completeAllOrders}
+              onStatusChange={setOrderStatus}
               onRefresh={refreshOrders}
               pickup={settings.pickup}
               onNavigate={setActive}
             />
           )}
 
-          {active === 'Menu' && (
-            <MenuPage
-              menu={displayMenu}
-              filteredMenu={filteredMenu}
+          {active === 'Products' && (
+            <ProductsPage
+              products={displayProducts}
+              filteredProducts={filteredProducts}
+              categories={productCategories}
               menuLoading={menuLoading}
               menuSource={menuSource}
               menuError={menuError}
               menuFilter={menuFilter}
               setMenuFilter={setMenuFilter}
-              soldOut={soldOut}
               photos={photos}
               onToggleSoldOut={toggleSoldOut}
               onSavePhoto={savePhoto}
               onResetPhoto={resetPhoto}
+              onSaveProduct={saveProduct}
+              onDeleteProduct={deleteProduct}
               onRefresh={refreshMenu}
               hotCount={hotCount}
               icedCount={icedCount}
               signatureCount={signatureCount}
               averagePrice={averagePrice}
+            />
+          )}
+
+          {active === 'Categories' && (
+            <CategoriesPage
+              categories={productCategories}
+              productCount={products.length}
+              onSave={saveCategory}
+              onDelete={deleteCategory}
+              onViewProducts={category => { setMenuFilter(category.name); setActive('Products') }}
             />
           )}
 
@@ -752,7 +1019,17 @@ function App() {
             />
           )}
 
-          {active === 'Insights' && (
+          {active === 'Payments' && (
+            <PaymentsPage
+              rows={paymentRows}
+              collected={collectedPayments}
+              pending={pendingPayments}
+              refunded={refundedPayments}
+              onNavigate={setActive}
+            />
+          )}
+
+          {active === 'Reports' && (
             <InsightsPage
               orders={orders}
               topDrinks={topDrinks}
@@ -778,7 +1055,7 @@ function App() {
               security={security}
               orders={orders}
               accounts={accounts}
-              menu={menu}
+              menu={products}
               totalRevenue={totalRevenue}
               onSaveProfile={saveProfile}
               onChangePassword={changePassword}
@@ -803,7 +1080,7 @@ function App() {
 
           <footer>
             <span>© 2026 VERSO Coffee · Admin console</span>
-            <span><i className="live-dot" /> {orders.length} orders · {menu.length} drinks</span>
+            <span><i className="live-dot" /> {orders.length} orders · {products.length} products</span>
           </footer>
         </div>
       </main>
@@ -835,8 +1112,9 @@ function PageHeader({ active, action }) {
 
 function OverviewPage({
   greeting, firstName, todayLabel, settings, newOrders, todayOrders, todayRevenue,
-  todayUnits, totalRevenue, menu, customerCount, memberCount, salesData, salesRange,
-  setSalesRange, topDrinks, orders, onNavigate, onSaveSettings,
+  todayUnits, totalRevenue, totalOrders, totalProducts, statusCounts, customerCount,
+  memberCount, salesData, salesRange, setSalesRange, topDrinks, orders, onNavigate,
+  onSaveSettings,
 }) {
   return (
     <>
@@ -866,10 +1144,23 @@ function OverviewPage({
       )}
 
       <section className="stat-grid" data-aos="fade-up" data-aos-delay="80">
-        <Stat icon={CircleDollarSign} label="Today's revenue" value={money(todayRevenue)} detail={`${todayOrders.length} orders`} note={`${money(totalRevenue)} all time`} tone="gold" />
-        <Stat icon={ShoppingBag} label="New orders" value={newOrders.length} unit="waiting" detail="Live queue" note={newOrders.length ? 'Ready to prepare' : 'All caught up'} tone="green" />
-        <Stat icon={ShoppingCart} label="Drinks sold today" value={todayUnits} unit="cups" detail={`${menu.length} on menu`} note="Hot and iced" tone="blue" />
-        <Stat icon={Users} label="Customers" value={customerCount} detail={`${memberCount} members`} note="Shop accounts & orders" tone="terra" />
+        <Stat icon={CircleDollarSign} label="Total revenue" value={money(totalRevenue)} detail={`${money(todayRevenue)} today`} note={`${orders.length} orders all time`} tone="gold" />
+        <Stat icon={ShoppingBag} label="Total orders" value={totalOrders} unit="orders" detail={`${newOrders.length} waiting`} note={`${statusCounts.completed} completed`} tone="green" />
+        <Stat icon={Package} label="Total products" value={totalProducts} unit="products" detail={`${todayUnits} sold today`} note="Across the menu" tone="blue" />
+        <Stat icon={Users} label="Total customers" value={customerCount} detail={`${memberCount} members`} note="Accounts and guests" tone="terra" />
+      </section>
+
+      <section className="status-overview" data-aos="fade-up" data-aos-delay="100">
+        {Object.entries(STATUS_META).map(([key, meta]) => (
+          <button
+            key={key}
+            className={`status-card status-${meta.tone}`}
+            onClick={() => onNavigate('Orders')}
+          >
+            <span>{meta.label}</span>
+            <b>{statusCounts[key]}</b>
+          </button>
+        ))}
       </section>
 
       <section className="dashboard-grid">
@@ -938,15 +1229,16 @@ function OverviewPage({
 
 function OrdersPage({
   orders, filteredOrders, newCount, orderFilter, setOrderFilter, onComplete,
-  onCompleteAll, onRefresh, pickup, onNavigate,
+  onCompleteAll, onStatusChange, onRefresh, pickup, onNavigate,
 }) {
   const revenue = orders.reduce((sum, order) => sum + Number(order.total || 0), 0)
   const units = orders.reduce((sum, order) => sum + orderUnits(order), 0)
   const customers = new Set(orders.map(order => order.customer?.email).filter(Boolean)).size
   const counts = {
     All: orders.length,
-    New: orders.filter(order => !isComplete(order)).length,
-    Completed: orders.filter(order => isComplete(order)).length,
+    New: orders.filter(isOpenOrder).length,
+    Completed: orders.filter(isComplete).length,
+    Cancelled: orders.filter(isCancelled).length,
   }
 
   return (
@@ -969,7 +1261,7 @@ function OrdersPage({
         </div>
 
         <div className="filter-tabs" role="tablist" aria-label="Filter orders">
-          {['All', 'New', 'Completed'].map(option => (
+          {['All', 'New', 'Completed', 'Cancelled'].map(option => (
             <button key={option} role="tab" aria-selected={orderFilter === option} className={orderFilter === option ? 'active' : ''} onClick={() => setOrderFilter(option)}>
               {option} <span>{counts[option]}</span>
             </button>
@@ -985,7 +1277,7 @@ function OrdersPage({
               : 'Try another filter or clear the search to see the rest of the queue.'}
           >
             {orders.length === 0 ? (
-              <button className="ghost-button" onClick={() => onNavigate('Menu')}>Browse the menu <ArrowUpRight size={14} /></button>
+              <button className="ghost-button" onClick={() => onNavigate('Products')}>Browse the menu <ArrowUpRight size={14} /></button>
             ) : (
               <button className="ghost-button" onClick={() => setOrderFilter('All')}>Show all orders</button>
             )}
@@ -993,7 +1285,7 @@ function OrdersPage({
         ) : (
           <div className="orders-list">
             {filteredOrders.map(order => (
-              <OrderCard key={order.id} order={order} pickup={pickup} onComplete={onComplete} />
+              <OrderCard key={order.id} order={order} pickup={pickup} onComplete={onComplete} onStatusChange={onStatusChange} />
             ))}
           </div>
         )}
@@ -1002,22 +1294,25 @@ function OrdersPage({
   )
 }
 
-function MenuPage({
-  menu, filteredMenu, menuLoading, menuSource, menuError, menuFilter, setMenuFilter,
-  soldOut, photos, onToggleSoldOut, onSavePhoto, onResetPhoto, onRefresh,
-  hotCount, icedCount, signatureCount, averagePrice,
+function ProductsPage({
+  products, filteredProducts, categories, menuLoading, menuSource, menuError,
+  menuFilter, setMenuFilter, photos, onToggleSoldOut, onSavePhoto, onResetPhoto,
+  onSaveProduct, onDeleteProduct, onRefresh, hotCount, icedCount, signatureCount,
+  averagePrice,
 }) {
-  const [editing, setEditing] = useState(null)
+  const [editingPhoto, setEditingPhoto] = useState(null)
+  const [editingProduct, setEditingProduct] = useState(null)
   const sourceCopy = menuSource === 'live'
-    ? 'Connected to the live SampleAPIs coffee menu'
+    ? 'Synced with the live SampleAPIs coffee menu'
     : menuSource === 'fallback'
       ? 'Showing house favourites while the live menu is unavailable'
       : 'Loading the live coffee menu'
+  const filterOptions = ['All', ...categories.map(category => category.name), 'Signature']
 
   return (
     <>
       <section className="stat-grid" data-aos="fade-up" data-aos-delay="80">
-        <Stat icon={Coffee} label="Menu items" value={menu.length} unit="drinks" detail="Live menu" note="Hot and iced" tone="green" />
+        <Stat icon={Package} label="Products" value={products.length} unit="items" detail="Menu catalogue" note="Managed in this dashboard" tone="green" />
         <Stat icon={Coffee} label="Hot drinks" value={hotCount} detail="Espresso bar" note="Served warm" tone="gold" />
         <Stat icon={Snowflake} label="Iced drinks" value={icedCount} detail="Cold bar" note="Over ice" tone="blue" />
         <Stat icon={Star} label="Average price" value={money(averagePrice)} detail={`${signatureCount} signature`} note="Across the menu" tone="terra" />
@@ -1025,32 +1320,38 @@ function MenuPage({
 
       <section className="panel menu-panel" data-aos="fade-up" data-aos-delay="120">
         <div className="panel-heading orders-heading">
-          <div><h2>Live menu</h2><p>{sourceCopy} · {filteredMenu.length} of {menu.length} shown</p></div>
+          <div><h2>Products</h2><p>{sourceCopy} · {filteredProducts.length} of {products.length} shown</p></div>
           <div className="heading-actions">
             <button className="ghost-button" onClick={onRefresh} disabled={menuLoading}><RefreshCw size={15} /> Refresh</button>
+            <button className="primary-button" onClick={() => setEditingProduct({})}><Plus size={15} /> Add product</button>
           </div>
         </div>
 
         {menuError && <div className="inline-note">{menuError}</div>}
 
-        <div className="filter-tabs" role="tablist" aria-label="Filter menu">
-          {['All', 'Hot', 'Iced', 'Signature'].map(option => (
+        <div className="filter-tabs" role="tablist" aria-label="Filter products">
+          {filterOptions.map(option => (
             <button key={option} role="tab" aria-selected={menuFilter === option} className={menuFilter === option ? 'active' : ''} onClick={() => setMenuFilter(option)}>{option}</button>
           ))}
         </div>
 
-        {menuLoading && menu.length === 0 ? (
+        {menuLoading && products.length === 0 ? (
           <div className="menu-grid">
             {Array.from({ length: 6 }).map((_, index) => <div className="menu-card menu-skeleton" key={index} />)}
           </div>
-        ) : filteredMenu.length === 0 ? (
-          <EmptyState icon={Coffee} title="No drinks match this view" copy="Try a different category or clear the search.">
-            <button className="ghost-button" onClick={() => setMenuFilter('All')}>Show all drinks</button>
+        ) : products.length === 0 ? (
+          <EmptyState icon={Coffee} title="No products loaded" copy="The product catalogue is empty. Reload the menu or add a product manually.">
+            <button className="ghost-button" onClick={onRefresh}><RefreshCw size={14} /> Reload menu</button>
+            <button className="primary-button" onClick={() => setEditingProduct({})}><Plus size={14} /> Add product</button>
+          </EmptyState>
+        ) : filteredProducts.length === 0 ? (
+          <EmptyState icon={Coffee} title="No products match this view" copy="Try a different category, clear the search or add a new product.">
+            <button className="ghost-button" onClick={() => setMenuFilter('All')}>Show all products</button>
           </EmptyState>
         ) : (
           <div className="menu-grid">
-            {filteredMenu.map(drink => {
-              const unavailable = soldOut.has(drink.id)
+            {filteredProducts.map(drink => {
+              const unavailable = !drink.available
               return (
                 <article className={`menu-card ${unavailable ? 'is-sold-out' : ''}`} key={drink.id}>
                   <div className="menu-media">
@@ -1065,7 +1366,7 @@ function MenuPage({
                     <button
                       className={`menu-photo-btn ${storedPhoto(photos, drink.id) ? 'is-custom' : ''}`}
                       type="button"
-                      onClick={() => setEditing(drink)}
+                      onClick={() => setEditingPhoto(drink)}
                       aria-label={`${storedPhoto(photos, drink.id) ? 'Edit' : 'Add'} photo for ${drink.title}`}
                     >
                       <ImagePlus size={12} /> {storedPhoto(photos, drink.id) ? 'Edit photo' : 'Add photo'}
@@ -1074,10 +1375,14 @@ function MenuPage({
                   <div className="menu-body">
                     <div className="menu-title-row"><h3>{drink.title}</h3><strong>{money(drink.price)}</strong></div>
                     <p>{drink.description}</p>
-                    <div className="menu-tags">{drink.ingredients.slice(0, 3).map(ingredient => <span key={ingredient}>{ingredient}</span>)}</div>
+                    <div className="menu-tags">{(drink.ingredients || []).slice(0, 3).map(ingredient => <span key={ingredient}>{ingredient}</span>)}</div>
                     <div className="menu-actions">
                       <span className={`avail ${unavailable ? 'out' : 'live'}`}><i /> {unavailable ? 'Sold out' : 'Available'}</span>
                       <button className="text-button" onClick={() => onToggleSoldOut(drink.id)}>{unavailable ? 'Mark available' : 'Mark sold out'}</button>
+                    </div>
+                    <div className="product-card-actions">
+                      <button className="ghost-button small" onClick={() => setEditingProduct(drink)}><Pencil size={13} /> Edit</button>
+                      <button className="ghost-button small danger-button" onClick={() => onDeleteProduct(drink.id)}><Trash2 size={13} /> Delete</button>
                     </div>
                   </div>
                 </article>
@@ -1087,17 +1392,130 @@ function MenuPage({
         )}
       </section>
 
-      {editing && (
+      {editingPhoto && (
         <PhotoEditor
-          key={editing.id}
-          drink={editing}
-          current={storedPhoto(photos, editing.id)}
-          onClose={() => setEditing(null)}
+          key={editingPhoto.id}
+          drink={editingPhoto}
+          current={storedPhoto(photos, editingPhoto.id)}
+          onClose={() => setEditingPhoto(null)}
           onSave={onSavePhoto}
           onReset={onResetPhoto}
         />
       )}
+
+      {editingProduct && (
+        <ProductEditor
+          key={editingProduct.id || 'new-product'}
+          product={editingProduct}
+          categories={categories}
+          onClose={() => setEditingProduct(null)}
+          onSave={onSaveProduct}
+        />
+      )}
     </>
+  )
+}
+
+function ProductEditor({ product, categories, onClose, onSave }) {
+  const isNew = !product.id
+  const [draft, setDraft] = useState({
+    title: product.title || '',
+    description: product.description || '',
+    category: product.category || categories[0]?.name || 'Hot',
+    price: product.price ?? '',
+    ingredients: Array.isArray(product.ingredients) ? product.ingredients.join(', ') : '',
+    image: product.image || '',
+    signature: Boolean(product.signature),
+    available: product.available !== false,
+  })
+  const [error, setError] = useState('')
+
+  useEffect(() => {
+    const onKeyDown = event => {
+      if (event.key === 'Escape') onClose()
+    }
+    document.addEventListener('keydown', onKeyDown)
+    return () => document.removeEventListener('keydown', onKeyDown)
+  }, [onClose])
+
+  const update = (key, value) => {
+    setDraft(current => ({ ...current, [key]: value }))
+    setError('')
+  }
+
+  const submit = event => {
+    event.preventDefault()
+    if (String(draft.title).trim().length < 2) {
+      setError('Enter a product name (at least 2 characters).')
+      return
+    }
+    if (Number(draft.price) < 0 || Number.isNaN(Number(draft.price))) {
+      setError('Enter a valid price.')
+      return
+    }
+    onSave(draft, product.id)
+    onClose()
+  }
+
+  return (
+    <div className="photo-modal" role="dialog" aria-modal="true" aria-labelledby="productTitle" onClick={event => { if (event.target === event.currentTarget) onClose() }}>
+      <form className="photo-dialog product-dialog" onSubmit={submit}>
+        <div className="photo-dialog-head">
+          <div>
+            <h2 id="productTitle">{isNew ? 'Add product' : 'Edit product'}</h2>
+            <p>{isNew ? 'Create a new drink for the menu.' : `Update ${product.title}.`}</p>
+          </div>
+          <button className="icon-button" type="button" onClick={onClose} aria-label="Close product editor"><X size={17} /></button>
+        </div>
+
+        <div className="form-grid">
+          <label className="form-field full">
+            <span>Product name</span>
+            <input value={draft.title} onChange={event => update('title', event.target.value)} placeholder="Salted Caramel Latte" />
+          </label>
+          <label className="form-field">
+            <span>Category</span>
+            <select value={draft.category} onChange={event => update('category', event.target.value)}>
+              {categories.map(category => <option key={category.id} value={category.name}>{category.name}</option>)}
+            </select>
+          </label>
+          <label className="form-field">
+            <span>Price (USD)</span>
+            <input type="number" min="0" step="0.01" value={draft.price} onChange={event => update('price', event.target.value)} placeholder="4.75" />
+          </label>
+          <label className="form-field full">
+            <span>Description</span>
+            <textarea rows="3" value={draft.description} onChange={event => update('description', event.target.value)} placeholder="Double espresso, steamed oat milk and house caramel." />
+          </label>
+          <label className="form-field full">
+            <span>Ingredients (comma separated)</span>
+            <input value={draft.ingredients} onChange={event => update('ingredients', event.target.value)} placeholder="Coffee, Oat milk, Caramel" />
+          </label>
+          <label className="form-field full">
+            <span>Image URL</span>
+            <input value={draft.image} onChange={event => update('image', event.target.value)} placeholder="https://images.unsplash.com/photo-..." />
+          </label>
+          <label className="check-field">
+            <input type="checkbox" checked={draft.signature} onChange={event => update('signature', event.target.checked)} />
+            <span>Signature drink</span>
+          </label>
+          <label className="check-field">
+            <input type="checkbox" checked={draft.available} onChange={event => update('available', event.target.checked)} />
+            <span>Available for ordering</span>
+          </label>
+        </div>
+
+        {error && <p className="photo-error">{error}</p>}
+
+        <div className="photo-actions">
+          <span className="photo-note">{isNew ? 'Saved in this browser store.' : 'Changes apply to the dashboard menu.'}</span>
+          <div>
+            <button className="ghost-button" type="button" onClick={onClose}>Cancel</button>
+            <button className="primary-button" type="submit"><Check size={15} /> {isNew ? 'Add product' : 'Save product'}</button>
+          </div>
+        </div>
+      </form>
+    </div>
   )
 }
 
@@ -1203,6 +1621,152 @@ function PhotoEditor({ drink, current, onClose, onSave, onReset }) {
   )
 }
 
+function CategoriesPage({ categories, productCount, onSave, onDelete, onViewProducts }) {
+  const [editing, setEditing] = useState(null)
+  const used = categories.filter(category => category.count > 0).length
+  const average = categories.length ? productCount / categories.length : 0
+
+  return (
+    <>
+      <section className="stat-grid" data-aos="fade-up" data-aos-delay="80">
+        <Stat icon={Tags} label="Categories" value={categories.length} unit="groups" detail="Menu structure" note="Used by the product catalogue" tone="gold" />
+        <Stat icon={Package} label="Products" value={productCount} detail="Across all groups" note="Every drink on the menu" tone="green" />
+        <Stat icon={CheckCircle2} label="Categories in use" value={used} detail={`${categories.length - used} empty`} note="Have at least one product" tone="blue" />
+        <Stat icon={BarChart3} label="Average per category" value={average.toFixed(1)} unit="items" detail="Balanced menu" note="Products per group" tone="terra" />
+      </section>
+
+      <section className="panel" data-aos="fade-up" data-aos-delay="120">
+        <div className="panel-heading">
+          <div><h2>Categories</h2><p>Group the menu so customers can browse quickly.</p></div>
+          <button className="primary-button" onClick={() => setEditing({})}><Plus size={15} /> Add category</button>
+        </div>
+
+        {categories.length === 0 ? (
+          <EmptyState icon={Tags} title="No categories yet" copy="Create a category before adding products to the menu.">
+            <button className="ghost-button" onClick={() => setEditing({})}>Add your first category</button>
+          </EmptyState>
+        ) : (
+          <div className="category-grid">
+            {categories.map(category => (
+              <article className="category-card" key={category.id}>
+                <span className="category-icon"><Tags size={18} /></span>
+                <div className="category-main">
+                  <b>{category.name}</b>
+                  <p>{category.description || 'No description yet.'}</p>
+                  <span className="soft-pill">{category.count} product{category.count === 1 ? '' : 's'}</span>
+                </div>
+                <div className="category-actions">
+                  <button className="ghost-button small" onClick={() => onViewProducts(category)}><Coffee size={13} /> Products</button>
+                  <button className="ghost-button small" onClick={() => setEditing(category)}><Pencil size={13} /> Edit</button>
+                  <button className="ghost-button small danger-button" onClick={() => onDelete(category.id)}><Trash2 size={13} /> Delete</button>
+                </div>
+              </article>
+            ))}
+          </div>
+        )}
+      </section>
+
+      {editing && (
+        <CategoryEditor
+          key={editing.id || 'new-category'}
+          category={editing}
+          onClose={() => setEditing(null)}
+          onSave={onSave}
+        />
+      )}
+    </>
+  )
+}
+
+function CategoryEditor({ category, onClose, onSave }) {
+  const isNew = !category.id
+  const [draft, setDraft] = useState({ name: category.name || '', description: category.description || '' })
+  const [error, setError] = useState('')
+
+  const submit = event => {
+    event.preventDefault()
+    if (String(draft.name).trim().length < 2) {
+      setError('Enter a category name (at least 2 characters).')
+      return
+    }
+    onSave(draft, category.id)
+    onClose()
+  }
+
+  return (
+    <div className="photo-modal" role="dialog" aria-modal="true" aria-labelledby="categoryTitle" onClick={event => { if (event.target === event.currentTarget) onClose() }}>
+      <form className="photo-dialog product-dialog" onSubmit={submit}>
+        <div className="photo-dialog-head">
+          <div>
+            <h2 id="categoryTitle">{isNew ? 'Add category' : 'Edit category'}</h2>
+            <p>{isNew ? 'Create a new group for the menu.' : `Update ${category.name}.`}</p>
+          </div>
+          <button className="icon-button" type="button" onClick={onClose} aria-label="Close category editor"><X size={17} /></button>
+        </div>
+        <div className="form-grid">
+          <label className="form-field full">
+            <span>Category name</span>
+            <input value={draft.name} onChange={event => { setDraft({ ...draft, name: event.target.value }); setError('') }} placeholder="Hot drinks" />
+          </label>
+          <label className="form-field full">
+            <span>Description</span>
+            <textarea rows="3" value={draft.description} onChange={event => { setDraft({ ...draft, description: event.target.value }); setError('') }} placeholder="Warm espresso bar favourites." />
+          </label>
+        </div>
+        {error && <p className="photo-error">{error}</p>}
+        <div className="photo-actions">
+          <span className="photo-note">Categories organise the product catalogue.</span>
+          <div>
+            <button className="ghost-button" type="button" onClick={onClose}>Cancel</button>
+            <button className="primary-button" type="submit"><Check size={15} /> {isNew ? 'Add category' : 'Save category'}</button>
+          </div>
+        </div>
+      </form>
+    </div>
+  )
+}
+
+function PaymentsPage({ rows, collected, pending, refunded, onNavigate }) {
+  return (
+    <>
+      <section className="stat-grid" data-aos="fade-up" data-aos-delay="80">
+        <Stat icon={Banknote} label="Collected" value={money(collected)} detail="Completed orders" note="Paid in full" tone="green" />
+        <Stat icon={Clock} label="Pending" value={money(pending)} detail="Awaiting pickup" note="Not settled yet" tone="gold" />
+        <Stat icon={RotateCcw} label="Refunded" value={money(refunded)} detail="Cancelled orders" note="Returned to customers" tone="terra" />
+        <Stat icon={Wallet} label="Transactions" value={rows.length} unit="payments" detail="All time" note="Linked to orders" tone="blue" />
+      </section>
+
+      <section className="panel" data-aos="fade-up" data-aos-delay="120">
+        <div className="panel-heading">
+          <div><h2>Payment ledger</h2><p>Every order and its payment state.</p></div>
+          <button className="text-link" onClick={() => onNavigate('Orders')}>Manage orders <ArrowUpRight size={14} /></button>
+        </div>
+
+        {rows.length === 0 ? (
+          <EmptyState icon={CreditCard} title="No payments yet" copy="Payments appear automatically when customers check out in the shop.">
+            <button className="ghost-button" onClick={() => onNavigate('Orders')}>Open orders</button>
+          </EmptyState>
+        ) : (
+          <div className="payment-list">
+            <div className="payment-row payment-head">
+              <span>Payment</span><span>Customer</span><span>Method</span><span>Status</span><span>Amount</span>
+            </div>
+            {rows.map(row => (
+              <div className="payment-row" key={row.id}>
+                <div className="payment-id"><b>{row.id}</b><small>{row.orderId} · {shortDate(row.createdAt)}</small></div>
+                <div className="payment-customer"><b>{row.customer}</b><small>{row.email}</small></div>
+                <span className="payment-method"><CreditCard size={13} /> {row.method}</span>
+                <span className={`status-pill ${row.status === 'Paid' ? 'good' : row.status === 'Refunded' ? 'cancelled' : 'new'}`}>{row.status}</span>
+                <strong className="payment-amount">{money(row.amount)}</strong>
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
+    </>
+  )
+}
+
 function CustomersPage({ customers, totalCount, memberCount, orderCount, totalRevenue, repeatCount, onNavigate }) {
   return (
     <>
@@ -1284,7 +1848,7 @@ function InsightsPage({
           </div>
           <div className="mix-bar hot"><span>Hot</span><b>{hotCount}</b><i style={{ width: `${(hotCount / menuTotal) * 100}%` }} /></div>
           <div className="mix-bar iced"><span>Iced</span><b>{icedCount}</b><i style={{ width: `${(icedCount / menuTotal) * 100}%` }} /></div>
-          <div className="mix-foot"><span><Star size={13} /> {signatureCount} signature drinks</span><button className="text-link" onClick={() => onNavigate('Menu')}>View menu <ArrowUpRight size={13} /></button></div>
+          <div className="mix-foot"><span><Star size={13} /> {signatureCount} signature drinks</span><button className="text-link" onClick={() => onNavigate('Products')}>View products <ArrowUpRight size={13} /></button></div>
         </div>
       </section>
 
@@ -1566,7 +2130,7 @@ function ProfilePage({
               <section className="panel profile-panel">
                 <div className="panel-heading">
                   <div><h2>Password management</h2><p>Update the password used for the admin sign-in.</p></div>
-                  <span className="soft-pill"><KeyRound size={11} /> Local demo</span>
+                  <span className="soft-pill"><KeyRound size={11} /> Server session</span>
                 </div>
                 <form className="profile-form" onSubmit={submitPassword}>
                   <div className="form-grid">
@@ -1601,17 +2165,17 @@ function ProfilePage({
                       placeholder="Repeat the new password"
                     />
                   </div>
-                  <p className="form-note">Use 8+ characters with at least one letter and one number. The demo default stays available after a reset.</p>
+                  <p className="form-note">Use 8+ characters with at least one letter and one number. The initial password from the server environment stays available after a reset.</p>
                   {error && <p className="form-error">{error}</p>}
                   <div className="profile-form-actions">
-                    <span className="form-note">{security.updatedAt ? `Updated ${shortDate(security.updatedAt)}` : 'Using the demo password.'}</span>
+                    <span className="form-note">{security.updatedAt ? `Updated ${shortDate(security.updatedAt)}` : 'Using the initial admin password.'}</span>
                     <button className="primary-button" type="submit" disabled={pwBusy}>
                       <Lock size={15} /> {pwBusy ? 'Updating…' : 'Update password'}
                     </button>
                   </div>
                 </form>
                 <div className="profile-security-actions">
-                  <button className="ghost-button" type="button" onClick={onResetPassword}><RotateCcw size={14} /> Reset to demo password</button>
+                  <button className="ghost-button" type="button" onClick={onResetPassword}><RotateCcw size={14} /> Reset to initial password</button>
                 </div>
               </section>
 
@@ -1787,7 +2351,7 @@ function SettingsPage({ settings, session, profile, onOpenProfile, onSave, onCle
           </div>
           <div className="admin-row">
             <span className="customer-avatar">{(profile?.name || session?.name || 'A').charAt(0).toUpperCase()}</span>
-            <span><b>{profile?.name || session?.name || 'Admin'}</b><small>{profile?.email || session?.email || 'admin@verso.coffee'}</small></span>
+            <span><b>{profile?.name || session?.name || 'Admin'}</b><small>{profile?.email || session?.email || 'admin@coffee.com'}</small></span>
             <span className="status-pill good">Admin</span>
           </div>
           <button className="ghost-button full-width" type="button" onClick={onOpenProfile}>
@@ -1859,19 +2423,22 @@ function TopDrinksPanel({ drinks, onNavigate }) {
           ))}
         </div>
       )}
-      <button className="text-link" onClick={() => onNavigate('Menu')}>Browse full menu <ArrowUpRight size={14} /></button>
+      <button className="text-link" onClick={() => onNavigate('Products')}>Browse full menu <ArrowUpRight size={14} /></button>
     </div>
   )
 }
 
-function OrderCard({ order, pickup, onComplete }) {
+function OrderCard({ order, pickup, onComplete, onStatusChange }) {
+  const status = orderStatus(order)
+  const meta = STATUS_META[status]
   const completed = isComplete(order)
+  const cancelled = isCancelled(order)
   const customer = order.customer || {}
   return (
-    <article className={`order-card ${completed ? 'is-complete' : ''}`}>
+    <article className={`order-card ${completed ? 'is-complete' : ''} ${cancelled ? 'is-cancelled' : ''}`}>
       <div className="order-head">
         <div className="order-badge-row">
-          <span className={`status-pill ${completed ? 'good' : 'new'}`}>{completed ? 'Completed' : 'New'}</span>
+          <span className={`status-pill ${meta.tone}`}>{meta.label}</span>
           <b>{order.id}</b>
           <small>{orderTime(order.createdAt)}</small>
         </div>
@@ -1892,9 +2459,21 @@ function OrderCard({ order, pickup, onComplete }) {
       </ul>
       <div className="order-foot">
         <span className="order-pickup"><MapPin size={13} /> Pickup · {pickup}</span>
-        {completed
-          ? <span className="done-label"><CheckCircle2 size={14} /> Completed</span>
-          : <button className="ghost-button small" onClick={() => onComplete(order.id)}><CheckCircle2 size={14} /> Mark completed</button>}
+        <div className="order-status-actions">
+          <label className="status-select">
+            <span>Status</span>
+            <select value={status} onChange={event => onStatusChange(order.id, event.target.value)}>
+              {Object.entries(STATUS_META).map(([value, option]) => (
+                <option key={value} value={value}>{option.label}</option>
+              ))}
+            </select>
+          </label>
+          {completed
+            ? <span className="done-label"><CheckCircle2 size={14} /> Completed</span>
+            : cancelled
+              ? <span className="done-label cancelled-label"><XCircle size={14} /> Cancelled</span>
+              : <button className="ghost-button small" onClick={() => onComplete(order.id)}><CheckCircle2 size={14} /> Mark completed</button>}
+        </div>
       </div>
     </article>
   )
@@ -1902,11 +2481,12 @@ function OrderCard({ order, pickup, onComplete }) {
 
 function RecentOrder({ order, onOpen }) {
   const customer = order.customer || {}
+  const meta = STATUS_META[orderStatus(order)]
   return (
     <button className="recent-order" onClick={onOpen}>
       <span className="recent-avatar">{(customer.name || 'G').charAt(0).toUpperCase()}</span>
       <span className="recent-main"><b>{customer.name || 'Guest'}</b><small>{orderUnits(order)} item{orderUnits(order) === 1 ? '' : 's'} · {orderTime(order.createdAt)}</small></span>
-      <span className={`status-pill ${isComplete(order) ? 'good' : 'new'}`}>{isComplete(order) ? 'Completed' : 'New'}</span>
+      <span className={`status-pill ${meta.tone}`}>{meta.label}</span>
       <strong>{money(order.total)}</strong>
     </button>
   )

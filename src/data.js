@@ -1,14 +1,15 @@
 import {
-  LayoutDashboard, ShoppingBag, Coffee, Users, BarChart3, Settings, UserRound,
+  LayoutDashboard, Coffee, Tags, ShoppingBag, Users, CreditCard, BarChart3, Settings,
 } from 'lucide-react'
 
 export const nav = [
-  { label: 'Overview', icon: LayoutDashboard },
+  { label: 'Dashboard', icon: LayoutDashboard },
+  { label: 'Products', icon: Coffee },
+  { label: 'Categories', icon: Tags },
   { label: 'Orders', icon: ShoppingBag },
-  { label: 'Menu', icon: Coffee },
   { label: 'Customers', icon: Users },
-  { label: 'Insights', icon: BarChart3 },
-  { label: 'Profile', icon: UserRound },
+  { label: 'Payments', icon: CreditCard },
+  { label: 'Reports', icon: BarChart3 },
   { label: 'Settings', icon: Settings },
 ]
 
@@ -47,6 +48,11 @@ export const defaultSettings = {
   acceptingOrders: true,
   announcement: 'Oat milk is always free. Bring a reusable cup for 10% off.',
 }
+
+export const defaultCategories = [
+  { id: 'hot', name: 'Hot', description: 'Espresso bar and warm drinks' },
+  { id: 'iced', name: 'Iced', description: 'Cold bar served over ice' },
+]
 
 export const FALLBACK_IMAGE = 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(
   '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 300"><rect width="400" height="300" fill="#eee6d8"/><g fill="none" stroke="#c69b52" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"><path d="M120 120h130v60a55 55 0 0 1-55 55h-20a55 55 0 0 1-55-55v-60Z"/><path d="M250 135h25a28 28 0 0 1 0 56h-25"/><path d="M150 90c-10-12 10-20 0-32M185 90c-10-12 10-20 0-32M220 90c-10-12 10-20 0-32"/></g></svg>',

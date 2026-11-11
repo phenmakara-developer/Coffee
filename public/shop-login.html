@@ -124,26 +124,8 @@
     .submit-btn:active { transform: translateY(0); }
     .switch { margin: 16px 0 0; color: #858b83; font-size: 11px; text-align: center; }
     .switch button { padding: 0 0 2px; border: 0; border-bottom: 1px solid var(--gold); background: transparent; color: var(--green); font-weight: 700; }
-    .demo-box {
-      margin-top: 20px; padding: 13px 15px;
-      border: 1px dashed rgba(6,61,50,.22); border-radius: 12px;
-      background: rgba(255,253,248,.55);
-    }
-    .demo-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 8px; }
-    .demo-head > span { color: #68756d; font-size: 8.5px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; }
-    .use-demo {
-      padding: 4px 9px; border: 1px solid rgba(6,61,50,.2); border-radius: 999px;
-      background: transparent; color: var(--green); font-size: 8.5px; font-weight: 700;
-    }
-    .use-demo:hover { background: var(--green); color: var(--cream); }
-    .demo-row { display: flex; justify-content: space-between; align-items: center; gap: 14px; padding: 3px 0; font-size: 10.5px; }
-    .demo-row span { color: var(--muted); }
-    .demo-row code {
-      padding: 3px 7px; border-radius: 5px; background: rgba(6,61,50,.07);
-      color: var(--green); font-family: ui-monospace, "SFMono-Regular", Menlo, monospace; font-size: 10px;
-    }
-    .fineprint { margin: 16px 0 0; color: #9aa198; font-size: 9px; line-height: 1.7; text-align: center; }
-
+    .staff-hint { margin-top: 8px; }
+    .staff-hint a { padding-bottom: 2px; border-bottom: 1px solid var(--gold); color: var(--green); font-weight: 700; }
     .visual-side {
       position: relative; z-index: 1; overflow: hidden; min-height: 100%;
       background: var(--green);
@@ -206,7 +188,6 @@
       .visual-side h2 { font-size: 32px; }
       .visual-side p { font-size: 11px; }
       .form-side { padding: 30px 21px 28px; }
-      .demo-row { flex-direction: column; align-items: flex-start; gap: 2px; }
     }
     @media (prefers-reduced-motion: reduce) {
       *, *::before, *::after { scroll-behavior: auto !important; transition-duration: .01ms !important; animation-duration: .01ms !important; }
@@ -254,6 +235,7 @@
               </div>
               <button class="submit-btn" type="submit">Sign in to the shop <span aria-hidden="true">&nbsp;↗</span></button>
               <p class="switch">New to VERSO Coffee? <button type="button" data-mode-jump="signup">Create an account</button></p>
+              <p class="switch staff-hint">Store staff? <a href="/login.html">Open admin sign-in</a></p>
             </form>
 
             <form id="signupForm" class="auth-form" novalidate hidden>
@@ -279,16 +261,6 @@
               <p class="switch">Already a member? <button type="button" data-mode-jump="signin">Sign in</button></p>
             </form>
 
-            <div class="demo-box">
-              <div class="demo-head">
-                <span>Demo member account</span>
-                <button class="use-demo" type="button" id="useDemo">Use demo</button>
-              </div>
-              <div class="demo-row"><span>Email</span><code>guest@verso.coffee</code></div>
-              <div class="demo-row"><span>Password</span><code>coffee123</code></div>
-            </div>
-
-            <p class="fineprint">Demo accounts are saved in this browser only. No real accounts or payments are created.</p>
           </div>
         </div>
 
@@ -315,8 +287,6 @@
   <script>
     const USER_KEY = "verso_coffee_user";
     const ACCOUNTS_KEY = "verso_coffee_accounts";
-    const DEMO = { name: "Guest", email: "guest@verso.coffee", password: "coffee123" };
-    const DEMO_HASH = "a3c47c16f93a8f757b80046860008d929ed6d7e0e12943a24c150170d47c359f";
 
     function nextTarget() {
       const raw = new URLSearchParams(window.location.search).get("next");
@@ -364,10 +334,6 @@
         accounts = [];
       }
       if (!Array.isArray(accounts)) accounts = [];
-      if (!accounts.some(account => account && account.email === DEMO.email)) {
-        accounts.push({ name: DEMO.name, email: DEMO.email, hash: DEMO_HASH });
-        saveJson(ACCOUNTS_KEY, accounts);
-      }
       return accounts;
     }
 
@@ -444,15 +410,6 @@
       });
     });
 
-    document.getElementById("useDemo").addEventListener("click", () => {
-      setMode("signin");
-      document.getElementById("signinEmail").value = DEMO.email;
-      document.getElementById("signinPassword").value = DEMO.password;
-      clearForm(signinForm);
-      document.getElementById("signinPassword").focus();
-      showToast("Demo account filled in — press Sign in.");
-    });
-
     signinForm.addEventListener("submit", async event => {
       event.preventDefault();
       clearForm(signinForm);
@@ -479,12 +436,18 @@
         return;
       }
 
+      if (email === "admin@coffee.com") {
+        showToast("This is the member sign-in — opening the admin sign-in page.");
+        setTimeout(() => window.location.assign("/login.html"), 500);
+        return;
+      }
+
       const account = readAccounts().find(item => item.email.toLowerCase() === email);
       const hash = await hashPassword(password);
 
       if (!account || account.hash !== hash) {
-        setFieldError(passwordInput, "Email or password is incorrect. Try the demo account below.");
-        showToast("Email or password is incorrect — try the demo account below.");
+        setFieldError(passwordInput, "Email or password is incorrect.");
+        showToast("Email or password is incorrect. Staff should use the admin sign-in page.");
         passwordInput.focus();
         return;
       }

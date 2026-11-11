@@ -116,24 +116,21 @@
     }
     .submit-btn:hover { transform: translateY(-2px); box-shadow: 0 14px 25px rgba(6,61,50,.24); filter: brightness(1.08); }
     .submit-btn:active { transform: translateY(0); }
-    .demo-box {
-      margin-top: 24px; padding: 15px 16px;
-      border: 1px dashed rgba(6,61,50,.22); border-radius: 12px;
-      background: rgba(255,253,248,.55);
+    .submit-btn:disabled { cursor: progress; opacity: .86; transform: none; filter: none; }
+    .submit-btn .btn-spinner {
+      width: 15px; height: 15px; margin-right: 9px; border-radius: 50%;
+      border: 2px solid rgba(255,253,248,.35); border-top-color: #fffdf8;
+      animation: login-spin .7s linear infinite;
     }
-    .demo-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 10px; }
-    .demo-head > span { color: #68756d; font-size: 9px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; }
-    .use-demo {
-      padding: 4px 9px; border: 1px solid rgba(6,61,50,.2); border-radius: 999px;
-      background: transparent; color: var(--green); font-size: 9px; font-weight: 700;
+    @keyframes login-spin { to { transform: rotate(360deg); } }
+    .form-status {
+      display: none; margin: -8px 0 16px; padding: 10px 12px;
+      border: 1px solid rgba(169,67,59,.28); border-radius: 9px;
+      background: rgba(169,67,59,.07); color: var(--danger);
+      font-size: 11.5px; line-height: 1.5;
     }
-    .use-demo:hover { background: var(--green); color: var(--cream); }
-    .demo-row { display: flex; justify-content: space-between; align-items: center; gap: 14px; padding: 4px 0; font-size: 11px; }
-    .demo-row span { color: var(--muted); }
-    .demo-row code {
-      padding: 3px 7px; border-radius: 5px; background: rgba(6,61,50,.07);
-      color: var(--green); font-family: ui-monospace, "SFMono-Regular", Menlo, monospace; font-size: 10.5px;
-    }
+    .form-status.show { display: block; }
+    .form-status.success { border-color: rgba(11,81,67,.28); background: rgba(11,81,67,.07); color: var(--green); }
     .alt-links { margin: 22px 0 0; color: #8b9088; font-size: 11px; line-height: 1.9; text-align: center; }
     .alt-links span { margin: 0 7px; color: #c3beb4; }
     .alt-links a { font-weight: 700; }
@@ -199,7 +196,6 @@
       body { padding: 12px 9px; }
       .form-panel { padding: 32px 21px; }
       h1 { font-size: 34px; }
-      .demo-row { flex-direction: column; align-items: flex-start; gap: 3px; }
     }
     @media (prefers-reduced-motion: reduce) {
       *, *::before, *::after { scroll-behavior: auto !important; transition-duration: .01ms !important; animation-duration: .01ms !important; }
@@ -225,9 +221,10 @@
           <p class="intro" data-aos="fade-up" data-aos-delay="200">Manage orders, the menu, customers and the day-to-day running of VERSO Coffee.</p>
 
           <form id="loginForm" novalidate data-aos="fade-up" data-aos-delay="250">
+            <div class="form-status" id="formStatus" role="alert" aria-live="assertive"></div>
             <div class="field">
               <label for="loginEmail">Admin email</label>
-              <input id="loginEmail" name="email" type="email" autocomplete="username" placeholder="admin@verso.coffee" required>
+              <input id="loginEmail" name="email" type="email" autocomplete="username" placeholder="admin@coffee.com" required>
               <div class="field-error">Enter a valid admin email address.</div>
             </div>
             <div class="field">
@@ -239,20 +236,11 @@
               <div class="field-error">Password must contain at least 8 characters.</div>
             </div>
             <div class="form-options">
-              <label class="remember"><input type="checkbox" name="remember"> Keep me signed in</label>
+              <label class="remember"><input type="checkbox" name="remember" id="rememberMe"> Keep me signed in</label>
               <a href="#" id="forgotLink">Forgot password?</a>
             </div>
-            <button class="submit-btn" type="submit">Open dashboard <span aria-hidden="true">&nbsp;↗</span></button>
+            <button class="submit-btn" type="submit" id="submitBtn">Open dashboard <span aria-hidden="true">&nbsp;↗</span></button>
           </form>
-
-          <div class="demo-box" data-aos="fade-up" data-aos-delay="300">
-            <div class="demo-head">
-              <span>Demo admin credentials</span>
-              <button class="use-demo" type="button" id="useDemo">Use demo</button>
-            </div>
-            <div class="demo-row"><span>Email</span><code>admin@verso.coffee</code></div>
-            <div class="demo-row"><span>Password</span><code>haven123</code></div>
-          </div>
 
           <p class="alt-links" data-aos="fade-up" data-aos-delay="340">
             <a href="/shop-login.html">Customer coffee sign in ↗</a>
@@ -278,42 +266,22 @@
       <div class="blade" aria-hidden="true"></div>
     </section>
 
-    <p class="legal">Front-end demo · Admin sessions are stored in this browser only.</p>
+    <p class="legal">Admin sessions are secured by the server.</p>
   </main>
 
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
   <script src="https://unpkg.com/aos@2.3.4/dist/aos.js"></script>
   <script>
-    const SESSION_KEY = "verso_session";
-    const SECURITY_KEY = "verso_admin_security";
-    const ADMIN_EMAIL = "admin@verso.coffee";
-    const ADMIN_PASSWORD = "haven123";
-
-    function storedPasswordHash() {
+    async function redirectIfSignedIn() {
       try {
-        const stored = JSON.parse(localStorage.getItem(SECURITY_KEY) || "null");
-        return stored && typeof stored === "object" && stored.hash ? stored.hash : "";
-      } catch (error) {
-        return "";
-      }
+        const response = await fetch("/api/admin/session", { credentials: "include", cache: "no-store" });
+        if (!response.ok) return;
+        const data = await response.json();
+        if (data.authenticated) window.location.replace("/admin/dashboard");
+      } catch (error) {}
     }
-
-    async function sha256(text) {
-      if (window.crypto && window.crypto.subtle) {
-        const bytes = new TextEncoder().encode(text);
-        const digest = await window.crypto.subtle.digest("SHA-256", bytes);
-        return Array.from(new Uint8Array(digest)).map(byte => byte.toString(16).padStart(2, "0")).join("");
-      }
-      return "plain:" + text;
-    }
-
-    try {
-      const existing = JSON.parse(localStorage.getItem(SESSION_KEY) || "null");
-      if (existing && existing.role === "admin") {
-        window.location.replace("/");
-      }
-    } catch (error) {}
+    redirectIfSignedIn();
 
     if (window.AOS) {
       AOS.init({
@@ -328,14 +296,40 @@
     const form = document.getElementById("loginForm");
     const emailInput = document.getElementById("loginEmail");
     const passwordInput = document.getElementById("loginPassword");
+    const submitBtn = document.getElementById("submitBtn");
+    const formStatus = document.getElementById("formStatus");
+    const rememberMe = document.getElementById("rememberMe");
     const toast = document.getElementById("toast");
     let toastTimer;
+
+    const REMEMBER_KEY = "verso_admin_remember";
+
+    try {
+      const remembered = JSON.parse(localStorage.getItem(REMEMBER_KEY) || "null");
+      if (remembered && remembered.email) {
+        emailInput.value = remembered.email;
+        rememberMe.checked = true;
+      }
+    } catch (error) {}
 
     function showToast(message) {
       toast.textContent = message;
       toast.classList.add("show");
       clearTimeout(toastTimer);
       toastTimer = setTimeout(() => toast.classList.remove("show"), 3400);
+    }
+
+    function setStatus(message, success) {
+      formStatus.textContent = message || "";
+      formStatus.classList.toggle("show", Boolean(message));
+      formStatus.classList.toggle("success", Boolean(success));
+    }
+
+    function setBusy(busy) {
+      submitBtn.disabled = busy;
+      submitBtn.innerHTML = busy
+        ? '<span class="btn-spinner" aria-hidden="true"></span> Signing in…'
+        : 'Open dashboard <span aria-hidden="true">&nbsp;↗</span>';
     }
 
     function setFieldError(input, message) {
@@ -365,20 +359,14 @@
       });
     });
 
-    document.getElementById("useDemo").addEventListener("click", () => {
-      emailInput.value = ADMIN_EMAIL;
-      passwordInput.value = ADMIN_PASSWORD;
-      clearErrors();
-      passwordInput.focus();
-      showToast("Demo admin credentials filled in — press Open dashboard.");
-    });
-
     form.addEventListener("submit", async event => {
       event.preventDefault();
       clearErrors();
+      setStatus("");
 
       const email = emailInput.value.trim().toLowerCase();
       const password = passwordInput.value;
+      const remember = rememberMe.checked;
       let valid = true;
 
       if (!email) {
@@ -398,44 +386,53 @@
       }
 
       if (!valid) {
+        setStatus("Please fix the highlighted fields and try again.");
         form.querySelector(".invalid")?.focus();
         return;
       }
 
-      const customHash = storedPasswordHash();
-      const matchesCustom = customHash ? (await sha256(password)) === customHash : false;
-      if (email !== ADMIN_EMAIL || (password !== ADMIN_PASSWORD && !matchesCustom)) {
-        setFieldError(passwordInput, "Incorrect admin credentials. Use the demo details below.");
-        showToast("Incorrect admin credentials — use the demo details below.");
-        passwordInput.focus();
-        return;
-      }
-
-      const session = {
-        name: "Admin",
-        email: ADMIN_EMAIL,
-        role: "admin",
-        mode: "login",
-        at: Date.now()
-      };
+      setBusy(true);
 
       try {
-        localStorage.setItem(SESSION_KEY, JSON.stringify(session));
+        const response = await fetch("/api/admin/login", {
+          method: "POST",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email, password, remember })
+        });
+        const data = await response.json().catch(() => ({}));
+
+        if (!response.ok) {
+          const message = data.error || "Incorrect admin credentials.";
+          setFieldError(passwordInput, message);
+          setStatus(message);
+          showToast(message);
+          passwordInput.focus();
+          setBusy(false);
+          return;
+        }
+
+        try {
+          localStorage.setItem("verso_session", JSON.stringify(data.admin));
+          if (remember) localStorage.setItem(REMEMBER_KEY, JSON.stringify({ email }));
+          else localStorage.removeItem(REMEMBER_KEY);
+        } catch (error) {}
+        setStatus("Signed in successfully — opening your dashboard…", true);
         showToast("Signed in — opening the VERSO Coffee dashboard…");
-        setTimeout(() => window.location.assign("/"), 800);
+        setTimeout(() => window.location.assign("/admin/dashboard"), 600);
       } catch (error) {
-        showToast("Your browser blocked local storage. Enable it to continue.");
+        const message = "Could not reach the server. Make sure the admin API is running.";
+        setStatus(message);
+        showToast(message);
+        setBusy(false);
       }
     });
 
     document.getElementById("forgotLink").addEventListener("click", event => {
       event.preventDefault();
-      if (storedPasswordHash()) {
-        try { localStorage.removeItem(SECURITY_KEY); } catch (error) {}
-        showToast("Password reset to the demo default — use haven123.");
-      } else {
-        showToast("Demo only — use the admin credentials shown on this page.");
-      }
+      const message = "Password resets are handled by the store owner. Run npm run seed-admin to reset the admin password from .env.";
+      setStatus(message);
+      showToast(message);
     });
   </script>
 </body>

@@ -12,6 +12,16 @@ const vendorChunks = id => {
 
 export default defineConfig({
   plugins: [react(), tailwindcss()],
+  server: {
+    port: 5180,
+    strictPort: true,
+    proxy: {
+      '/api': {
+        target: 'http://localhost:4000',
+        changeOrigin: true,
+      },
+    },
+  },
   build: {
     rollupOptions: {
       output: {
